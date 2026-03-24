@@ -1,0 +1,44 @@
+{
+  "name": "localvoice-studio",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev --port 3000",
+    "build": "vp build",
+    "preview": "vp preview",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "typecheck": "vp check --typecheck",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vp test --run",
+    "test:e2e": "env -u NO_COLOR playwright test",
+    "test:a11y": "env -u NO_COLOR playwright test --config=playwright.a11y.config.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "@nuxt/ui": "^4.6.0",
+    "kokoro-js": "^1.2.1",
+    "phonemizer": "^1.2.1",
+    "tailwindcss": "^4.2.2",
+    "vue": "^3.5.30",
+    "vue-router": "^5.0.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.1",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^29.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.2",
+    "vite-plus": "^0.1.13",
+    "vitest": "^4.1.1",
+    "vue-tsc": "^3.2.6"
+  },
+  "packageManager": "npm@11.12.0"
+}

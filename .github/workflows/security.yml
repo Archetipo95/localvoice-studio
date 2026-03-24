@@ -1,0 +1,37 @@
+name: Security
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 1 * *" # Run on the first day of every month at 6:00 AM
+  pull_request:
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NPM_CONFIG_AUDIT: "false"
+  NPM_CONFIG_FUND: "false"
+  NPM_CONFIG_LOGLEVEL: error
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    container:
+      image: node:22-bookworm-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit all dependencies
+        run: npm audit --audit-level=high
