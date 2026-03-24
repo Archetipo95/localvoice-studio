@@ -1,0 +1,34 @@
+# Python environments and caches
+.venv/
+.venv-py314/
+__pycache__/
+*.py[cod]
+.coverage
+
+# Node / Playwright
+node_modules/
+test-results/
+playwright-report/
+coverage/
+dist/
+*.tsbuildinfo
+.codex/
+
+# Generated files (auto-import component registrations)
+auto-imports.d.ts
+components.d.ts
+
+# Development/debug scripts
+check.mjs
+test-ls.mjs
+build-err.log
+
+# Design system docs (internal use only)
+design-system/
+
+# Generated audio
+output/
+voice_samples/*.wav
+
+# OS junk
+.DS_Store
