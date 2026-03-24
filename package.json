@@ -34,7 +34,7 @@
     "@vitest/coverage-v8": "^4.1.1",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^29.0.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vite": "^8.0.2",
     "vite-plus": "^0.1.13",
     "vitest": "^4.1.1",
