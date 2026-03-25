@@ -88,7 +88,7 @@ async function handleInit(message: InitRequest): Promise<void> {
       type: "ready",
       device,
       voices: listVoices(currentTts),
-      language: currentModel.language,
+      language: currentModel.language ?? null,
     });
   } catch (error) {
     post({
@@ -172,12 +172,12 @@ async function handleGeneratePreview(message: GeneratePreviewRequest): Promise<v
           voice: message.voice,
           secondaryVoice: message.secondaryVoice ?? NO_BLEND_VOICE,
           secondaryRatio: message.secondaryRatio ?? 0,
-          language: currentModel.language,
           speed: message.speed,
           pitchSemitones: message.pitchSemitones,
           sentencePauseMs: message.sentencePauseMs,
           newlinePauseMs: message.newlinePauseMs,
           paragraphPauseMs: message.paragraphPauseMs,
+          fileName: "voice-preview.wav",
         },
         currentRunToken,
       ),
@@ -295,7 +295,7 @@ async function initializeMock(
     type: "ready",
     device: activeDevice,
     voices: currentModel.voices.length > 0 ? currentModel.voices : DEFAULT_MODEL.voices,
-    language: currentModel.language ?? DEFAULT_MODEL.language,
+    language: currentModel.language ?? DEFAULT_MODEL.language ?? null,
   });
 }
 
@@ -394,6 +394,13 @@ async function validateTts(tts: KokoroInstance): Promise<void> {
   });
 }
 
+function normalizeTraits(traits: unknown): string[] | undefined {
+  if (!traits) return undefined;
+  if (Array.isArray(traits)) return traits;
+  if (typeof traits === "string") return [traits];
+  return undefined;
+}
+
 function listVoices(tts: KokoroInstance) {
   return sortVoicesByGrade(
     Object.entries(tts.voices).map(([id, metadata]) => ({
@@ -403,7 +410,7 @@ function listVoices(tts: KokoroInstance) {
       language: metadata.language,
       targetQuality: metadata.targetQuality,
       overallGrade: metadata.overallGrade,
-      traits: "traits" in metadata ? metadata.traits : undefined,
+      traits: "traits" in metadata ? normalizeTraits(metadata.traits) : undefined,
     })),
   );
 }

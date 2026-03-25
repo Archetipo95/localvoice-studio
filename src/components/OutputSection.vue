@@ -1,32 +1,79 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useAppState } from "../composables/useAppState";
+import { storeToRefs } from "pinia";
+import { useEditorStore } from "../stores/editor";
+import { useGenerationStore } from "../stores/generation";
+import { useVoiceStore } from "../stores/voice";
 import {
+  cancelGeneration,
   clearSavedAudioCache,
-  latestOutputSamples,
-  previewAudioUrls,
+  generateAudio,
+  generationElapsedMs,
+  lastGenerationDurationMs,
 } from "../composables/useTtsWorker";
+import { generationHistory, latestExportMetadata } from "../composables/useGenerationHistory";
+import { resolveOutputFileName } from "../composables/useFilenameTemplate";
+import { previewAudioUrls } from "../composables/usePreviewCache";
 import PatternPlaceholder from "./PatternPlaceholder.vue";
+import GenerationHistory from "./GenerationHistory.vue";
+import GenerateButton from "./GenerateButton.vue";
 
-const { state } = useAppState();
+const genStore = useGenerationStore();
+const voiceStore = useVoiceStore();
+const editorStore = useEditorStore();
+const { status, activityPhase, audioUrl, canCancel, device } = storeToRefs(genStore);
 
 const outputLoading = computed(() => {
-  if (state.value.activityPhase !== "generating") {
-    return null;
-  }
+  if (activityPhase.value !== "generating") return null;
   return {
     title: "Generating speech",
     detail: "Synthesizing your audio in the worker. This can take a moment for longer scripts.",
   };
 });
 
-const hasCachedAudio = computed(() => {
-  return (
-    state.value.audioUrl !== null ||
-    previewAudioUrls.value.size > 0 ||
-    latestOutputSamples.value !== null
-  );
+function formatGenerationDuration(elapsedMs: number): string {
+  const seconds = elapsedMs / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = (seconds % 60).toFixed(1);
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+const elapsedLabel = computed(() => {
+  const isGenerating = activityPhase.value === "generating";
+  const elapsed = isGenerating ? generationElapsedMs.value : (lastGenerationDurationMs.value ?? 0);
+  if (elapsed <= 0) return null;
+  const formatted = formatGenerationDuration(elapsed);
+  return isGenerating ? `Time waiting: ${formatted}` : `Last generation time: ${formatted}`;
 });
+
+function handleGenerate() {
+  generateAudio({
+    type: "generate",
+    text: editorStore.text,
+    voice: voiceStore.selectedVoice,
+    secondaryVoice: voiceStore.secondaryVoice,
+    secondaryRatio: voiceStore.secondaryRatio,
+    speed: voiceStore.speed,
+    pitchSemitones: voiceStore.pitchSemitones,
+    sentencePauseMs: voiceStore.pauses.sentence.value,
+    newlinePauseMs: voiceStore.pauses.newline.value,
+    paragraphPauseMs: voiceStore.pauses.paragraph.value,
+    fileName: resolveOutputFileName(voiceStore.selectedVoice),
+  });
+}
+
+const latestResolvedFileName = computed(
+  () => latestExportMetadata.value?.fileName ?? "localvoice-studio.wav",
+);
+
+const hasCachedAudio = computed(
+  () =>
+    audioUrl.value !== null ||
+    previewAudioUrls.value.size > 0 ||
+    latestExportMetadata.value !== null ||
+    generationHistory.value.length > 0,
+);
 
 async function handleClearCachedAudio() {
   await clearSavedAudioCache();
@@ -53,6 +100,7 @@ async function handleClearCachedAudio() {
           variant="soft"
           color="neutral"
           icon="i-heroicons-trash"
+          :disabled="status === 'loading' || status === 'generating'"
           @click="handleClearCachedAudio"
         >
           Clear cached audio
@@ -70,10 +118,27 @@ async function handleClearCachedAudio() {
         <UProgress animation="carousel" />
       </div>
 
-      <div
-        v-else-if="state.audioUrl"
-        class="flex flex-col gap-4 p-4 rounded-xl ring ring-default bg-default"
-      >
+      <GenerateButton
+        :can-cancel="canCancel"
+        :loading="activityPhase === 'generating'"
+        :disabled="
+          status === 'loading' || status === 'generating' || !voiceStore.selectedVoice || !device
+        "
+        :elapsed-label="elapsedLabel"
+        @generate="handleGenerate"
+        @cancel="cancelGeneration"
+      />
+
+      <UAlert
+        v-if="genStore.error === 'Generation canceled.'"
+        id="generation-cancelled-alert"
+        title="Generation canceled."
+        icon="i-heroicons-information-circle"
+        color="warning"
+        variant="soft"
+      />
+
+      <div v-if="audioUrl" class="flex flex-col gap-4 p-4 rounded-xl ring ring-default bg-default">
         <div class="flex flex-col gap-3">
           <div class="rounded-xl p-3 ring ring-default bg-elevated transition-all">
             <audio
@@ -81,31 +146,49 @@ async function handleClearCachedAudio() {
               class="w-full outline-none h-8 rounded-lg"
               controls
               preload="metadata"
-              :src="state.audioUrl ?? undefined"
+              :src="audioUrl ?? undefined"
             >
-              <a :href="state.audioUrl ?? undefined" download="localvoice-studio.wav"
+              <a :href="audioUrl ?? undefined" :download="latestResolvedFileName"
                 >Download the generated audio</a
               >
             </audio>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 text-xs text-muted">
+            <span
+              >File:
+              <span class="font-semibold text-highlighted">{{ latestResolvedFileName }}</span></span
+            >
+            <span v-if="latestExportMetadata"
+              >Format: <span class="font-semibold text-highlighted">16-bit WAV</span></span
+            >
+            <span v-if="latestExportMetadata"
+              >Size:
+              <span class="font-semibold text-highlighted"
+                >{{ latestExportMetadata.sizeBytes }} bytes</span
+              ></span
+            >
           </div>
 
           <div class="flex justify-start sm:justify-end">
             <UButton
               id="download-link"
               class="w-full justify-center sm:w-auto"
-              :to="state.audioUrl"
-              download="localvoice-studio.wav"
+              :to="audioUrl"
+              :download="latestResolvedFileName"
               icon="i-heroicons-arrow-down-tray"
               target="_blank"
               color="neutral"
             >
-              Download WAV
+              Download {{ latestResolvedFileName }}
             </UButton>
           </div>
         </div>
       </div>
 
-      <div v-else class="output-empty-state p-4 rounded-xl ring ring-default bg-default">
+      <GenerationHistory />
+
+      <div v-if="!audioUrl" class="output-empty-state p-4 rounded-xl ring ring-default bg-default">
         <PatternPlaceholder>
           <p class="relative text-center text-sm text-muted">
             Generate audio to preview and download your final output.

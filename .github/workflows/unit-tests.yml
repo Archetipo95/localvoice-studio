@@ -1,0 +1,32 @@
+name: CI - Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NPM_CONFIG_AUDIT: "false"
+  NPM_CONFIG_FUND: "false"
+  NPM_CONFIG_LOGLEVEL: error
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: "22"
+          cache: true
+
+      - name: Unit tests
+        run: vp test --run

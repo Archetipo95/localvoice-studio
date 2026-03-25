@@ -1,42 +1,40 @@
 // @vitest-environment jsdom
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick, ref } from "vue";
+import { defineComponent, h, nextTick } from "vue";
 import { describe, expect, it, vi } from "vitest";
-import { toPhoneticCharKind } from "../utils/phonetic-chars";
+import { useEditorStore } from "../stores/editor";
+import { useGenerationStore } from "../stores/generation";
+import { useUiStore } from "../stores/ui";
+import { useVoiceStore } from "../stores/voice";
+import type { ModelDefinition } from "../types";
 
-const focusSpy = vi.fn();
-const insertContentAtSpy = vi.fn();
-const setTextSelectionSpy = vi.fn();
+type ScriptLabVm = {
+  onEditorUpdate: () => void;
+  handleGenerate: () => void;
+  handleClearText: () => void;
+  handleResetControls: () => void;
+  handleEditorModeToggle: (value: boolean) => void;
+};
 
-const mockEditor = {
-  isEditable: true,
-  state: {
-    selection: { from: 1, to: 5, empty: false },
-    doc: {
-      textBetween: vi.fn(() => "word"),
-    },
+const generateAudio = vi.fn();
+const clearEditorText = vi.fn();
+
+vi.mock("../composables/useTtsWorker", () => ({
+  generateAudio,
+  resetStudioState: () => {
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
+
+    voice.resetToDefaults(generation.model);
+    generation.resetControls();
   },
-  getText: vi.fn(() => "updated from editor"),
-  chain: vi.fn(() => ({
-    focus: focusSpy.mockReturnThis(),
-    insertContentAt: insertContentAtSpy.mockReturnThis(),
-    setTextSelection: setTextSelectionSpy.mockReturnValue("ok"),
-  })),
-};
+  generationElapsedMs: { value: 0 },
+  lastGenerationDurationMs: { value: null },
+}));
 
-const UButtonStub = {
-  props: ["label", "disabled", "loading", "id"],
-  emits: ["click"],
-  template:
-    '<button :id="id" type="button" :disabled="disabled" @click="$emit(\'click\')">{{ label }}<slot /><slot name="leading" /></button>',
-};
-
-const UAccordionStub = {
-  props: ["modelValue"],
-  emits: ["update:modelValue"],
-  template:
-    '<button class="markup-summary" type="button" @click="$emit(\'update:modelValue\', [\'guide\'])"><slot /></button>',
-};
+vi.mock("../composables/useFilenameTemplate", () => ({
+  resolveOutputFileName: vi.fn(() => "localvoice-test.wav"),
+}));
 
 const ScriptEditorPanelStub = defineComponent({
   name: "ScriptEditorPanel",
@@ -44,247 +42,194 @@ const ScriptEditorPanelStub = defineComponent({
   emits: ["update:modelValue", "toggleMode"],
   setup(_, { expose }) {
     expose({
-      getEditorText: () => "Line <one> & [two](+1)",
+      getEditorText: () => "Changed from editor",
+      clearEditorText,
     });
     return () => h("div", { class: "script-editor-panel-stub" });
   },
 });
 
 describe("ScriptLab", () => {
-  it("handles editor updates, markup actions, and generate/reset flows", async () => {
-    vi.resetModules();
-    focusSpy.mockClear();
-    insertContentAtSpy.mockClear();
-    setTextSelectionSpy.mockClear();
+  it("passes empty modelValue only when editor text is empty", async () => {
+    const editor = useEditorStore();
+    const generation = useGenerationStore();
+    const ui = useUiStore();
 
-    const dispatch = vi.fn();
-    const generateAudio = vi.fn();
-    const cancelGeneration = vi.fn();
-
-    const state = ref({
-      text: "Line <one> & [two](+1)",
-      status: "ready",
-      activityPhase: "idle",
-      selectedVoice: "af_heart",
-      secondaryVoice: "__none__",
-      secondaryRatio: 0,
-      language: "English",
-      speed: 1,
-      pitchSemitones: 0,
-      sentencePauseMs: 100,
-      newlinePauseMs: 150,
-      paragraphPauseMs: 250,
-      canCancel: false,
-      device: "webgpu",
-      error: null,
-    } as any);
-
-    const editorViewMode = ref<"markup" | "plain">("markup");
-    const markupGuideOpen = ref(false);
-
-    vi.doMock("../composables/useAppState", () => ({
-      useAppState: () => ({ state, dispatch }),
-    }));
-    vi.doMock("../composables/useTtsWorker", () => ({
-      generateAudio,
-      cancelGeneration,
-    }));
-    vi.doMock("../composables/useUiState", () => ({
-      editorViewMode,
-      markupGuideOpen,
-    }));
+    editor.text = "Hello world";
+    generation.status = "ready";
+    generation.device = "webgpu";
+    ui.editorViewMode = "markup";
 
     const ScriptLab = (await import("./ScriptLab.vue")).default;
     const wrapper = mount(ScriptLab, {
       global: {
         stubs: {
-          UCard: { template: "<div><slot /></div>" },
           ScriptEditorPanel: ScriptEditorPanelStub,
-          UAccordion: UAccordionStub,
-          USwitch: {
-            name: "USwitch",
-            props: ["modelValue"],
-            emits: ["update:modelValue"],
-            template:
-              '<input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', ($event.target as HTMLInputElement).checked)" />',
-          },
-          UButton: UButtonStub,
+          UAccordion: { template: "<div><slot /></div>" },
+          UButton: { template: "<button type='button'></button>" },
           UAlert: { props: ["title"], template: "<div>{{ title }}</div>" },
           UIcon: { template: "<span></span>" },
+          MarkupGuide: { template: "<div>guide</div>" },
         },
       },
     });
 
-    (wrapper.vm as any).onEditorUpdate();
-    expect(dispatch).toHaveBeenCalledWith({ type: "text", text: "Line <one> & [two](+1)" });
+    expect(wrapper.findComponent(ScriptEditorPanelStub).props("modelValue")).toBe(
+      "<p>Hello world</p>",
+    );
 
-    editorViewMode.value = "plain";
+    editor.text = "";
     await nextTick();
-    const callsBeforePlainUpdate = dispatch.mock.calls.length;
-    (wrapper.vm as any).onEditorUpdate();
-    expect(dispatch.mock.calls.length).toBe(callsBeforePlainUpdate);
-    editorViewMode.value = "markup";
-    await nextTick();
-    (wrapper.vm as any).handleEditorModeToggle(false);
-    expect(editorViewMode.value).toBe("plain");
-    (wrapper.vm as any).handleEditorModeToggle(true);
-    expect(editorViewMode.value).toBe("markup");
-
-    const handlers = (wrapper.vm as any).customHandlers;
-    expect(handlers.pronunciation.canExecute(mockEditor)).toBe(true);
-    expect(handlers.break.canExecute(mockEditor)).toBe(true);
-    expect(handlers.stressUp.canExecute(mockEditor)).toBe(true);
-    expect(handlers.stressDown.canExecute(mockEditor)).toBe(true);
-
-    handlers.pronunciation.execute(mockEditor);
-    handlers.break.execute(mockEditor);
-    handlers.stressUp.execute(mockEditor);
-    handlers.stressDown.execute(mockEditor);
-
-    expect(insertContentAtSpy).toHaveBeenNthCalledWith(
-      1,
-      { from: 1, to: 5 },
-      { type: "text", text: "[word](/:/)" },
-    );
-    expect(setTextSelectionSpy).toHaveBeenNthCalledWith(1, 10); // from(1) + selected.length(4) + 5 = 10
-    expect(insertContentAtSpy).toHaveBeenNthCalledWith(
-      2,
-      { from: 1, to: 5 },
-      { type: "text", text: "[word](break:500)" },
-    );
-    expect(setTextSelectionSpy).toHaveBeenNthCalledWith(2, { from: 14, to: 17 });
-    expect(insertContentAtSpy).toHaveBeenNthCalledWith(
-      3,
-      { from: 1, to: 5 },
-      { type: "text", text: "[word](+1)" },
-    );
-    expect(setTextSelectionSpy).toHaveBeenNthCalledWith(3, { from: 9, to: 10 });
-    expect(insertContentAtSpy).toHaveBeenNthCalledWith(
-      4,
-      { from: 1, to: 5 },
-      { type: "text", text: "[word](-1)" },
-    );
-    expect(setTextSelectionSpy).toHaveBeenNthCalledWith(4, { from: 9, to: 10 });
-
-    const schwaHandler = handlers[toPhoneticCharKind("ə")];
-    expect(schwaHandler.canExecute(mockEditor)).toBe(true);
-    schwaHandler.execute(mockEditor);
-    expect(insertContentAtSpy).toHaveBeenNthCalledWith(
-      5,
-      { from: 1, to: 5 },
-      { type: "text", text: "ə" },
-    );
-
-    mockEditor.state.selection.empty = true;
-    expect(handlers.pronunciation.isDisabled(mockEditor)).toBe(true);
-    mockEditor.state.selection.empty = false;
-
-    state.value.text = "   ";
-    (wrapper.vm as any).handleGenerate();
-    expect(dispatch).toHaveBeenCalledWith({ type: "error", message: "Text is required." });
-
-    state.value.text = "Hello";
-    state.value.selectedVoice = "";
-    (wrapper.vm as any).handleGenerate();
-    expect(dispatch).toHaveBeenCalledWith({
-      type: "error",
-      message: "Wait for the model voices to load before generating.",
-    });
-
-    state.value.selectedVoice = "af_heart";
-    state.value.device = null;
-    (wrapper.vm as any).handleGenerate();
-    expect(dispatch).toHaveBeenCalledWith({
-      type: "error",
-      message: "Download and load the model before generating.",
-    });
-
-    state.value.device = "webgpu";
-    state.value.language = null;
-    (wrapper.vm as any).handleGenerate();
-    expect(generateAudio).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "generate", text: "Hello", language: undefined }),
-    );
-
-    (wrapper.vm as any).handleClearText();
-    expect(dispatch).toHaveBeenCalledWith({ type: "text", text: "" });
-
-    (wrapper.vm as any).handleResetControls();
-    expect(cancelGeneration).toHaveBeenCalled();
-    expect(dispatch).toHaveBeenCalledWith({ type: "reset-controls" });
-
-    state.value.canCancel = true;
-    await nextTick();
-    expect(state.value.canCancel).toBe(true);
-
-    state.value.activityPhase = "generating";
-    await nextTick();
-    expect(wrapper.text()).toContain("Generating...");
-
-    state.value.error = "Boom";
-    await nextTick();
-    expect(wrapper.text()).toContain("Boom");
+    expect(wrapper.findComponent(ScriptEditorPanelStub).props("modelValue")).toBe("");
   });
 
-  it("falls back to empty text when editor instance is unavailable", async () => {
-    vi.resetModules();
-    const dispatch = vi.fn();
+  it("updates text from editor and generates audio", async () => {
+    generateAudio.mockClear();
+    clearEditorText.mockClear();
 
-    const state = ref({
-      text: "Line one\n\nLine two",
-      status: "ready",
-      activityPhase: "idle",
-      selectedVoice: "af_heart",
-      secondaryVoice: "__none__",
-      secondaryRatio: 0,
-      language: "English",
-      speed: 1,
-      pitchSemitones: 0,
-      sentencePauseMs: 100,
-      newlinePauseMs: 150,
-      paragraphPauseMs: 250,
-      canCancel: false,
-      device: "webgpu",
-      error: null,
-    } as any);
+    const editor = useEditorStore();
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
+    const ui = useUiStore();
+    const model: ModelDefinition = {
+      id: "m1",
+      label: "Model",
+      modelId: "model-1",
+      voices: [{ id: "af_heart", label: "Heart" }],
+    };
 
-    vi.doMock("../composables/useAppState", () => ({
-      useAppState: () => ({ state, dispatch }),
-    }));
-    vi.doMock("../composables/useTtsWorker", () => ({
-      generateAudio: vi.fn(),
-      cancelGeneration: vi.fn(),
-    }));
-    vi.doMock("../composables/useUiState", () => ({
-      editorViewMode: ref<"markup" | "plain">("markup"),
-      markupGuideOpen: ref(false),
-    }));
-
-    const UEditorNoExpose = defineComponent({
-      name: "ScriptEditorPanel",
-      props: ["modelValue", "isMarkupMode", "handlers", "toolbarItems"],
-      emits: ["update:modelValue", "toggleMode"],
-      setup() {
-        return () => h("div");
-      },
-    });
+    editor.text = "Initial";
+    generation.status = "ready";
+    generation.device = "webgpu";
+    generation.model = model;
+    voice.selectedVoice = "af_heart";
+    voice.secondaryVoice = "__none__";
+    voice.secondaryRatio = 0;
+    voice.language = "English";
+    ui.editorViewMode = "markup";
+    ui.markupGuideOpen = false;
 
     const ScriptLab = (await import("./ScriptLab.vue")).default;
     const wrapper = mount(ScriptLab, {
       global: {
         stubs: {
-          UCard: { template: "<div><slot /></div>" },
-          ScriptEditorPanel: UEditorNoExpose,
-          UAccordion: UAccordionStub,
-          USwitch: { template: '<input type="checkbox" />' },
-          UButton: UButtonStub,
+          ScriptEditorPanel: ScriptEditorPanelStub,
+          UAccordion: { template: "<div class='markup-summary'><slot /></div>" },
+          UButton: {
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>',
+          },
           UAlert: { props: ["title"], template: "<div>{{ title }}</div>" },
           UIcon: { template: "<span></span>" },
+          MarkupGuide: { template: "<div>guide</div>" },
         },
       },
     });
+    const vm = wrapper.vm as unknown as ScriptLabVm;
 
-    (wrapper.vm as any).onEditorUpdate();
-    expect(dispatch).toHaveBeenCalledWith({ type: "text", text: expect.any(String) });
+    expect(wrapper.findComponent(ScriptEditorPanelStub).props("modelValue")).toBe("<p>Initial</p>");
+
+    vm.onEditorUpdate();
+    expect(editor.text).toBe("Changed from editor");
+    expect(wrapper.findComponent(ScriptEditorPanelStub).props("modelValue")).toBe("<p>Initial</p>");
+
+    vm.handleGenerate();
+    expect(generateAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Changed from editor",
+        voice: "af_heart",
+      }),
+    );
+
+    ui.editorViewMode = "plain";
+    editor.text = "Keep me";
+    await nextTick();
+    vm.onEditorUpdate();
+    expect(editor.text).toBe("Keep me");
+  });
+
+  it("handles validation, clear, and reset", async () => {
+    generateAudio.mockClear();
+    clearEditorText.mockClear();
+
+    const editor = useEditorStore();
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
+    const model: ModelDefinition = {
+      id: "m1",
+      label: "Model",
+      modelId: "model-1",
+      voices: [{ id: "af_heart", label: "Heart" }],
+    };
+
+    editor.text = "Initialize";
+    generation.status = "ready";
+    generation.device = "webgpu";
+    generation.audioUrl = "blob:active";
+    generation.error = "Generation canceled.";
+    generation.model = model;
+    voice.selectedVoice = "af_heart";
+    voice.speed = 1.8;
+
+    const ScriptLab = (await import("./ScriptLab.vue")).default;
+    const wrapper = mount(ScriptLab, {
+      global: {
+        stubs: {
+          ScriptEditorPanel: ScriptEditorPanelStub,
+          UAccordion: { template: "<div><slot /></div>" },
+          UButton: { template: "<button type='button'></button>" },
+          UAlert: { props: ["title"], template: "<div>{{ title }}</div>" },
+          UIcon: { template: "<span></span>" },
+          MarkupGuide: { template: "<div>guide</div>" },
+        },
+      },
+    });
+    const vm = wrapper.vm as unknown as ScriptLabVm;
+
+    expect(wrapper.findComponent(ScriptEditorPanelStub).props("modelValue")).toBe(
+      "<p>Initialize</p>",
+    );
+
+    vm.handleGenerate();
+    expect(generateAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Initialize",
+        voice: "af_heart",
+      }),
+    );
+
+    generateAudio.mockClear();
+    editor.text = "Hello";
+    vm.handleGenerate();
+    expect(generateAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Hello",
+        voice: "af_heart",
+      }),
+    );
+
+    generateAudio.mockClear();
+    voice.selectedVoice = "am_michael";
+    vm.handleGenerate();
+    expect(generateAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Hello",
+        voice: "am_michael",
+      }),
+    );
+
+    vm.handleClearText();
+    await nextTick();
+    expect(editor.text).toBe("");
+    expect(clearEditorText).toHaveBeenCalledTimes(1);
+    expect(wrapper.findComponent(ScriptEditorPanelStub).props("modelValue")).toBe("");
+
+    vm.handleResetControls();
+    expect(editor.text).toBe("");
+    expect(voice.speed).toBe(1);
+    expect(generation.audioUrl).toBe(null);
+    expect(generation.error).toBe(null);
+
+    vm.handleEditorModeToggle(false);
+    expect(useUiStore().editorViewMode).toBe("plain");
   });
 });

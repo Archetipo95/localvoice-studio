@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { getAllPhoneticChars, getPhoneticCharGroups, toPhoneticCharKind } from "./phonetic-chars";
 
@@ -6,6 +6,13 @@ describe("phonetic char menu data", () => {
   it("builds browser-safe kinds from unicode codepoints", () => {
     expect(toPhoneticCharKind("ə")).toBe("phoneticChar_259");
     expect(toPhoneticCharKind("t͡ʃ")).toBe("phoneticChar_74_361_283");
+    expect(toPhoneticCharKind("")).toBe("phoneticChar_");
+
+    const codePointSpy = vi
+      .spyOn(String.prototype, "codePointAt")
+      .mockReturnValue(undefined as unknown as number);
+    expect(toPhoneticCharKind("a")).toBe("phoneticChar_0");
+    codePointSpy.mockRestore();
   });
 
   it("returns grouped menu items for IPA suggestions", () => {

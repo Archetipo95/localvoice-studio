@@ -1,2 +1,17 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* force cursor pointer on buttons */
+button {
+  cursor: pointer;
+}
+
+/* Keep TipTap paragraphs compact so many blank lines don't distort layout. */
+.tiptap p {
+  margin: 0;
+}
+
+.tiptap {
+  max-height: 100%;
+  overflow-y: auto;
+}

@@ -1,25 +1,51 @@
-import { shallowRef, ref, watch } from "vue";
-import type { InitRequest, GenerateRequest, WorkerResponse } from "../types";
-import { useAppState } from "./useAppState";
+import { ref, shallowRef, watch, toRaw } from "vue";
+import type {
+  GenerateRequest,
+  InitRequest,
+  WorkerResponse,
+  GeneratePreviewRequest,
+} from "../types";
+import { useGenerationStore } from "../stores/generation";
+import { useVoiceStore } from "../stores/voice";
+import { useUiStore } from "../stores/ui";
 import { audioBufferToWavBlob } from "../utils/audio";
-import { runtimePreference } from "./useUiState";
-import { preferredDeviceFromEnvironment, hasWebGPU } from "../utils/runtime";
+import {
+  storePreviewResult,
+  loadPreviewFromCache,
+  buildVoicePreviewId,
+  buildMixPreviewId,
+  clearPreviewCache,
+  deletePreviewCacheStorage,
+  revokeBlobUrl,
+} from "./usePreviewCache";
+import {
+  latestExportMetadata,
+  appendHistoryItem,
+  persistHistoryAudioToCache,
+  clearGenerationHistory,
+  isHistoryAudioUrl,
+  setLatestOutput,
+  clearLatestOutput,
+  renameHistoryOutput as renameHistoryOutputInHistory,
+  removeHistoryOutput as removeHistoryOutputInHistory,
+} from "./useGenerationHistory";
+import { resolveOutputFileName, normalizeDownloadName } from "./useFilenameTemplate";
 import {
   LONG_TEXT_NEWLINE_PAUSE_MS,
   LONG_TEXT_PAUSE_MS,
   LONG_TEXT_PARAGRAPH_PAUSE_MS,
 } from "../utils/long-text";
 
+import { clearPersistedGenerationHistory } from "../utils/generation-history";
+
 export const worker = shallowRef<Worker | null>(null);
 export const activePreviewId = ref<string | null>(null);
-export const previewAudioUrls = ref<Map<string, string>>(new Map());
-export const previewAudioSamples = shallowRef<Map<string, Float32Array>>(new Map());
-export const latestOutputSamples = shallowRef<Float32Array | null>(null);
-export const latestOutputSampleRate = ref(24000);
 export const hasRetriedWithWasm = ref(false);
+export const generationElapsedMs = ref(0);
+export const generationStartAt = ref<number | null>(null);
+export const lastGenerationDurationMs = ref<number | null>(null);
 
-const { state, dispatch } = useAppState();
-const PREVIEW_AUDIO_CACHE_NAME = "kokoro-preview-audio-v1";
+const HISTORY_FILE_PREVIEW_LENGTH = 96;
 const DEFAULT_PREVIEW_OPTIONS = {
   speed: 1,
   pitchSemitones: 0,
@@ -28,133 +54,169 @@ const DEFAULT_PREVIEW_OPTIONS = {
   paragraphPauseMs: LONG_TEXT_PARAGRAPH_PAUSE_MS,
 };
 
-function formatPreviewTuningKey(options: {
-  speed: number;
-  pitchSemitones: number;
-  sentencePauseMs: number;
-  newlinePauseMs: number;
-  paragraphPauseMs: number;
-}) {
-  return [
-    `speed:${options.speed.toFixed(2)}`,
-    `pitch:${options.pitchSemitones.toFixed(1)}`,
-    `sentence:${options.sentencePauseMs}`,
-    `newline:${options.newlinePauseMs}`,
-    `paragraph:${options.paragraphPauseMs}`,
-  ].join("|");
+let elapsedTimer: number | null = null;
+let pendingGenerateRequest: GenerateRequest | null = null;
+
+interface PreviewBatch {
+  previewIds: Set<string>;
 }
 
-export function buildVoicePreviewId(options: {
-  voice: string;
-  speed: number;
-  pitchSemitones: number;
-  sentencePauseMs: number;
-  newlinePauseMs: number;
-  paragraphPauseMs: number;
-}) {
-  return `voice:${options.voice}|${formatPreviewTuningKey(options)}`;
-}
+let activeBatch: PreviewBatch | null = null;
+const previewOutputAliases = new Map<string, string>();
 
-export function buildMixPreviewId(options: {
-  voice: string;
-  secondaryVoice: string;
-  secondaryRatio: number;
-  speed: number;
-  pitchSemitones: number;
-  sentencePauseMs: number;
-  newlinePauseMs: number;
-  paragraphPauseMs: number;
-}) {
-  return `mix:${options.voice}|${options.secondaryVoice}|${options.secondaryRatio}|${formatPreviewTuningKey(options)}`;
-}
-
-function revokeBlobUrl(url: string | null | undefined) {
-  if (!url || !url.startsWith("blob:")) return;
-  try {
-    URL.revokeObjectURL(url);
-  } catch {
-    // Ignore revocation failures in constrained environments.
+function startElapsedTimer() {
+  generationStartAt.value = Date.now();
+  generationElapsedMs.value = 0;
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer);
   }
+  elapsedTimer = window.setInterval(() => {
+    const startedAt = generationStartAt.value;
+    if (startedAt) {
+      generationElapsedMs.value = Date.now() - startedAt;
+    }
+  }, 200);
 }
 
-export async function clearSavedAudioCache() {
-  dispatch({ type: "clear-audio" });
-
-  for (const url of previewAudioUrls.value.values()) {
-    revokeBlobUrl(url);
+function stopElapsedTimer() {
+  if (elapsedTimer !== null) {
+    window.clearInterval(elapsedTimer);
+    elapsedTimer = null;
   }
+  const startedAt = generationStartAt.value;
+  if (startedAt) {
+    generationElapsedMs.value = Math.max(generationElapsedMs.value, Date.now() - startedAt);
+    lastGenerationDurationMs.value = generationElapsedMs.value;
+  }
+  generationStartAt.value = null;
+}
 
-  previewAudioUrls.value = new Map();
-  previewAudioSamples.value = new Map();
+function resetTransientOutputState() {
+  const gen = useGenerationStore();
+
+  gen.clearAudio();
+  clearPreviewCache();
   activePreviewId.value = null;
-  latestOutputSamples.value = null;
-  latestOutputSampleRate.value = 24000;
-
-  try {
-    await caches.delete(PREVIEW_AUDIO_CACHE_NAME);
-  } catch {
-    // Ignore storage cleanup failures.
-  }
+  activeBatch = null;
+  previewOutputAliases.clear();
+  latestExportMetadata.value = null;
+  clearLatestOutput();
+  stopElapsedTimer();
+  generationElapsedMs.value = 0;
+  lastGenerationDurationMs.value = null;
+  hasRetriedWithWasm.value = false;
 }
 
-watch(
-  () => state.value.audioUrl,
-  (next, previous) => {
-    if (previous && previous !== next) {
-      revokeBlobUrl(previous);
+function handleWorkerMessage(message: WorkerResponse, initMessage: InitRequest) {
+  const gen = useGenerationStore();
+  const voice = useVoiceStore();
+
+  switch (message.type) {
+    case "init-progress":
+      if (message.phase === "fallback") {
+        gen.setInitFallback();
+      } else {
+        gen.setInitLoading();
+      }
+      break;
+
+    case "ready":
+      voice.setFromReady(message.voices, message.language ?? null);
+      gen.setReady(message.device);
+      break;
+
+    case "result": {
+      stopElapsedTimer();
+
+      const fileName =
+        pendingGenerateRequest?.fileName || resolveOutputFileName(voice.selectedVoice);
+
+      // Retain a typed view over the transferred buffer instead of copying PCM again.
+      setLatestOutput(new Float32Array(message.audioBuffer), message.sampleRate);
+
+      const blob = audioBufferToWavBlob(message.audioBuffer, message.sampleRate, message.mimeType);
+      const audioUrl = URL.createObjectURL(blob);
+      gen.setAudioReady(audioUrl);
+
+      const exportMetadata = {
+        mimeType: message.mimeType,
+        extension: "wav" as const,
+        bitDepth: 16 as const,
+        sizeBytes: blob.size,
+        fileName,
+      };
+      latestExportMetadata.value = exportMetadata;
+
+      const now = Date.now();
+      const historyId = `${now}-${Math.random().toString(36).slice(2, 9)}`;
+      const historyCacheKey = `history:${historyId}`;
+      const sourceText = pendingGenerateRequest?.text ?? "";
+
+      void (async () => {
+        await persistHistoryAudioToCache(historyCacheKey, blob, message.mimeType);
+        await appendHistoryItem({
+          id: historyId,
+          createdAt: now,
+          durationMs: lastGenerationDurationMs.value ?? 0,
+          textLength: sourceText.length,
+          textPreview: sourceText.replace(/\s+/g, " ").trim().slice(0, HISTORY_FILE_PREVIEW_LENGTH),
+          voice: pendingGenerateRequest?.voice ?? voice.selectedVoice,
+          secondaryVoice: pendingGenerateRequest?.secondaryVoice ?? voice.secondaryVoice,
+          secondaryRatio: pendingGenerateRequest?.secondaryRatio ?? voice.secondaryRatio,
+          speed: pendingGenerateRequest?.speed ?? voice.speed,
+          pitchSemitones: pendingGenerateRequest?.pitchSemitones ?? voice.pitchSemitones,
+          sentencePauseMs: pendingGenerateRequest?.sentencePauseMs ?? voice.pauses.sentence.value,
+          newlinePauseMs: pendingGenerateRequest?.newlinePauseMs ?? voice.pauses.newline.value,
+          paragraphPauseMs:
+            pendingGenerateRequest?.paragraphPauseMs ?? voice.pauses.paragraph.value,
+          fileName,
+          audioUrl,
+          cacheKey: historyCacheKey,
+        });
+      })();
+
+      pendingGenerateRequest = null;
+      break;
     }
-  },
-);
 
-watch(
-  () => state.value.model.modelId,
-  (next, previous) => {
-    if (previous && previous !== next) {
-      void clearSavedAudioCache();
+    case "preview-result": {
+      if (!activeBatch?.previewIds.has(message.previewId)) {
+        previewOutputAliases.delete(message.previewId);
+        break;
+      }
+
+      const blob = audioBufferToWavBlob(message.audioBuffer, message.sampleRate, message.mimeType);
+      const url = URL.createObjectURL(blob);
+      storePreviewResult(
+        message.previewId,
+        message.mimeType,
+        blob,
+        url,
+        previewOutputAliases.get(message.previewId),
+      );
+      previewOutputAliases.delete(message.previewId);
+      completePreview(message.previewId, gen);
+      break;
     }
-  },
-);
 
-function isMockTtsMode() {
-  const url = new URL(window.location.href);
-  return url.searchParams.get("mockTts") === "1";
-}
+    case "error":
+      stopElapsedTimer();
+      pendingGenerateRequest = null;
 
-export function buildInitMessage() {
-  const model = state.value.model;
-  const url = new URL(window.location.href);
-  const mockTts = isMockTtsMode();
-  const mockDevice = url.searchParams.get("mockDevice");
-  const explicitDevice = url.searchParams.get("forceDevice");
-  const gpuAvailable = hasWebGPU();
+      if (
+        "recoverable" in message &&
+        message.recoverable &&
+        initMessage.preferredDevice === "auto" &&
+        !hasRetriedWithWasm.value
+      ) {
+        hasRetriedWithWasm.value = true;
+        startWorker({ ...initMessage, preferredDevice: "wasm" });
+        return;
+      }
 
-  if (runtimePreference.value === ("auto" as any)) {
-    runtimePreference.value = preferredDeviceFromEnvironment("auto", gpuAvailable) as any;
+      gen.setError(message.message);
+      break;
   }
-
-  const preferredDevice =
-    explicitDevice === "webgpu" || explicitDevice === "wasm"
-      ? explicitDevice
-      : runtimePreference.value;
-
-  return {
-    type: "init" as const,
-    preferredDevice: preferredDevice as any,
-    model,
-    mock: mockTts
-      ? {
-          enabled: true,
-          deviceMode: (mockDevice === "fallback" || mockDevice === "wasm" || mockDevice === "webgpu"
-            ? mockDevice
-            : preferredDevice) as any,
-        }
-      : undefined,
-  };
-}
-
-export function initWorker() {
-  dispatch({ type: "init-loading" });
-  startWorker(buildInitMessage());
 }
 
 export function startWorker(initMessage: InitRequest) {
@@ -170,170 +232,235 @@ export function startWorker(initMessage: InitRequest) {
   worker.value.postMessage(initMessage);
 }
 
-function handleWorkerMessage(message: WorkerResponse, initMessage: InitRequest) {
-  switch (message.type) {
-    case "init-progress":
-      dispatch({ type: message.phase === "fallback" ? "init-fallback" : "init-loading" });
-      break;
-    case "ready":
-      dispatch({
-        type: "ready",
-        device: message.device,
-        voices: message.voices,
-        language: message.language ?? null,
-      });
-      break;
-    case "result": {
-      latestOutputSamples.value = new Float32Array(message.audioBuffer.slice(0));
-      latestOutputSampleRate.value = message.sampleRate;
-      const blob = audioBufferToWavBlob(message.audioBuffer, message.sampleRate, message.mimeType);
-      const audioUrl = URL.createObjectURL(blob);
-      dispatch({ type: "audio-ready", audioUrl });
+function isMockTtsMode() {
+  return new URL(window.location.href).searchParams.get("mockTts") === "1";
+}
 
-      void (async () => {
-        try {
-          const cache = await caches.open(PREVIEW_AUDIO_CACHE_NAME);
-          const outputKey = `output:${state.value.selectedVoice}|speed:${state.value.speed.toFixed(2)}|pitch:${state.value.pitchSemitones.toFixed(1)}`;
-          const reqUrl = `/${encodeURIComponent(outputKey)}`;
-          await cache.put(
-            reqUrl,
-            new Response(blob, { headers: { "Content-Type": message.mimeType } }),
-          );
-        } catch {
-          // Ignore cache write failures for non-critical preview persistence.
+export function buildInitMessage(): InitRequest {
+  const gen = useGenerationStore();
+  const ui = useUiStore();
+  const url = new URL(window.location.href);
+  const mockTts = isMockTtsMode();
+  const mockDevice = url.searchParams.get("mockDevice");
+  const explicitDevice = url.searchParams.get("forceDevice");
+
+  const preferredDevice =
+    explicitDevice === "webgpu" || explicitDevice === "wasm"
+      ? explicitDevice
+      : ui.runtimePreference;
+
+  const model = structuredClone(toRaw(gen.model));
+
+  return {
+    type: "init",
+    preferredDevice,
+    model,
+    mock: mockTts
+      ? {
+          enabled: true,
+          deviceMode:
+            mockDevice === "fallback" || mockDevice === "wasm" || mockDevice === "webgpu"
+              ? mockDevice
+              : preferredDevice,
         }
-      })();
+      : undefined,
+  };
+}
 
-      break;
-    }
-    case "preview-result": {
-      const blob = audioBufferToWavBlob(message.audioBuffer, message.sampleRate, message.mimeType);
-      const url = URL.createObjectURL(blob);
-      revokeBlobUrl(previewAudioUrls.value.get(message.previewId));
-      const newMap = new Map(previewAudioUrls.value);
-      newMap.set(message.previewId, url);
-      previewAudioUrls.value = newMap;
+export function initWorker() {
+  useGenerationStore().setInitLoading();
+  startWorker(buildInitMessage());
+}
 
-      const newSamplesMap = new Map(previewAudioSamples.value);
-      newSamplesMap.set(message.previewId, new Float32Array(message.audioBuffer.slice(0)));
-      previewAudioSamples.value = newSamplesMap;
+export function generateAudio(request: GenerateRequest): boolean {
+  const gen = useGenerationStore();
+  if (!request.text.trim()) {
+    gen.setError("Text is required.");
+    return false;
+  }
 
-      void (async () => {
-        try {
-          const cache = await caches.open(PREVIEW_AUDIO_CACHE_NAME);
-          const reqUrl = `/${encodeURIComponent(message.previewId)}`;
-          const res = new Response(blob, { headers: { "Content-Type": message.mimeType } });
-          await cache.put(reqUrl, res);
+  if (!worker.value) {
+    gen.setError("Model worker is not ready.");
+    return false;
+  }
 
-          if (message.previewId.startsWith("mix:") && message.previewId.includes("__none__|0|")) {
-            const parts = message.previewId.split("|");
-            const primaryVoice = parts[0]!.split(":")[1]!;
-            const tuningParts = parts.slice(3);
-            const outputKey = `output:${primaryVoice}|${tuningParts.join("|")}`;
-            await cache.put(
-              `/${encodeURIComponent(outputKey)}`,
-              new Response(blob, { headers: { "Content-Type": message.mimeType } }),
-            );
-          }
-        } catch {
-          // Ignore cache write failures for non-critical preview persistence.
-        }
-      })();
+  pendingGenerateRequest = request;
+  startElapsedTimer();
+  gen.clearError();
+  gen.startGeneration();
+  worker.value.postMessage(request);
+  return true;
+}
 
-      break;
-    }
-    case "error":
-      if (
-        "recoverable" in message &&
-        message.recoverable &&
-        initMessage.preferredDevice === "auto" &&
-        !hasRetriedWithWasm.value
-      ) {
-        hasRetriedWithWasm.value = true;
-        startWorker({ ...initMessage, preferredDevice: "wasm" });
-        return;
-      }
-      dispatch({ type: "error", message: message.message });
-      break;
+function stopGeneration(showCanceledError: boolean) {
+  worker.value?.postMessage({ type: "cancel" });
+  stopElapsedTimer();
+  pendingGenerateRequest = null;
+  if (showCanceledError) {
+    useGenerationStore().setError("Generation canceled.");
   }
 }
 
-export function generateAudio(request: GenerateRequest) {
-  dispatch({ type: "clear-error" });
-  dispatch({ type: "generate-start" });
-  worker.value?.postMessage(request);
-}
-
 export function cancelGeneration() {
-  worker.value?.postMessage({ type: "cancel" });
-  dispatch({ type: "error", message: "Generation canceled." });
+  stopGeneration(true);
 }
 
-async function checkCacheAndRequest(req: any) {
-  if (previewAudioUrls.value.has(req.previewId)) return;
+export function resetStudioState() {
+  stopGeneration(false);
 
-  try {
-    const cache = await caches.open(PREVIEW_AUDIO_CACHE_NAME);
-    const url = `/${encodeURIComponent(req.previewId)}`;
-    const response = await cache.match(url);
-    if (response) {
-      const blob = await response.blob();
-      revokeBlobUrl(previewAudioUrls.value.get(req.previewId));
-      const newMap = new Map(previewAudioUrls.value);
-      newMap.set(req.previewId, URL.createObjectURL(blob));
-      previewAudioUrls.value = newMap;
-      return;
-    }
-  } catch {}
+  const voice = useVoiceStore();
+  const gen = useGenerationStore();
 
-  worker.value?.postMessage(req);
+  voice.resetToDefaults(gen.model);
+  gen.resetControls();
+
+  latestExportMetadata.value = null;
+  clearLatestOutput();
 }
 
 export function requestPreviews() {
-  if (!state.value.selectedVoice || state.value.status !== "ready") return;
-  dispatch({ type: "preview-start" });
+  const gen = useGenerationStore();
+  const voice = useVoiceStore();
+  if (!voice.selectedVoice || gen.status !== "ready") return;
 
-  const finalPreviewOptions = {
-    speed: state.value.speed,
-    pitchSemitones: state.value.pitchSemitones,
-    sentencePauseMs: state.value.sentencePauseMs,
-    newlinePauseMs: state.value.newlinePauseMs,
-    paragraphPauseMs: state.value.paragraphPauseMs,
+  gen.startPreview();
+
+  const finalOptions = {
+    speed: voice.speed,
+    pitchSemitones: voice.pitchSemitones,
+    sentencePauseMs: voice.pauses.sentence.value,
+    newlinePauseMs: voice.pauses.newline.value,
+    paragraphPauseMs: voice.pauses.paragraph.value,
   };
 
-  checkCacheAndRequest({
-    type: "generate-preview",
-    previewId: buildVoicePreviewId({
-      voice: state.value.selectedVoice,
-      ...DEFAULT_PREVIEW_OPTIONS,
-    }),
-    voice: state.value.selectedVoice,
-    ...DEFAULT_PREVIEW_OPTIONS,
-  });
-
-  if (state.value.secondaryVoice && state.value.secondaryVoice !== "__none__") {
-    checkCacheAndRequest({
+  const requests: GeneratePreviewRequest[] = [
+    {
       type: "generate-preview",
-      previewId: buildVoicePreviewId({
-        voice: state.value.secondaryVoice,
-        ...DEFAULT_PREVIEW_OPTIONS,
-      }),
-      voice: state.value.secondaryVoice,
+      previewId: buildVoicePreviewId({ voice: voice.selectedVoice, ...DEFAULT_PREVIEW_OPTIONS }),
+      voice: voice.selectedVoice,
+      ...DEFAULT_PREVIEW_OPTIONS,
+    },
+  ];
+
+  if (voice.secondaryVoice && voice.secondaryVoice !== "__none__") {
+    requests.push({
+      type: "generate-preview",
+      previewId: buildVoicePreviewId({ voice: voice.secondaryVoice, ...DEFAULT_PREVIEW_OPTIONS }),
+      voice: voice.secondaryVoice,
       ...DEFAULT_PREVIEW_OPTIONS,
     });
   }
 
-  checkCacheAndRequest({
+  requests.push({
     type: "generate-preview",
     previewId: buildMixPreviewId({
-      voice: state.value.selectedVoice,
-      secondaryVoice: state.value.secondaryVoice,
-      secondaryRatio: state.value.secondaryRatio,
-      ...finalPreviewOptions,
+      voice: voice.selectedVoice,
+      secondaryVoice: voice.secondaryVoice,
+      secondaryRatio: voice.secondaryRatio,
+      ...finalOptions,
     }),
-    voice: state.value.selectedVoice,
-    secondaryVoice: state.value.secondaryVoice,
-    secondaryRatio: state.value.secondaryRatio,
-    ...finalPreviewOptions,
+    voice: voice.selectedVoice,
+    secondaryVoice: voice.secondaryVoice,
+    secondaryRatio: voice.secondaryRatio,
+    ...finalOptions,
   });
+
+  previewOutputAliases.clear();
+  activeBatch = {
+    previewIds: new Set(requests.map((r) => r.previewId)),
+  };
+
+  // For a mix preview with no secondary voice, register an output-style alias
+  // so the cache can be cross-referenced without re-generating.
+  const mixRequest = requests[requests.length - 1]!;
+  if (!mixRequest.secondaryVoice || mixRequest.secondaryVoice === "__none__") {
+    const tuningKey = [
+      `speed:${mixRequest.speed.toFixed(2)}`,
+      `pitch:${mixRequest.pitchSemitones.toFixed(1)}`,
+      `sentence:${mixRequest.sentencePauseMs}`,
+      `newline:${mixRequest.newlinePauseMs}`,
+      `paragraph:${mixRequest.paragraphPauseMs}`,
+    ].join("|");
+    previewOutputAliases.set(mixRequest.previewId, `output:${mixRequest.voice}|${tuningKey}`);
+  }
+
+  const requestPreview = async (request: GeneratePreviewRequest) => {
+    const cached = await loadPreviewFromCache(request.previewId);
+    if (cached) {
+      completePreview(request.previewId, gen);
+      return;
+    }
+
+    if (worker.value) {
+      worker.value.postMessage(request);
+      return;
+    }
+
+    // No worker available; avoid leaving preview phase stuck.
+    completePreview(request.previewId, gen);
+  };
+
+  for (const request of requests) {
+    void requestPreview(request);
+  }
+}
+
+function completePreview(previewId: string, generation: ReturnType<typeof useGenerationStore>) {
+  if (!activeBatch) return;
+
+  // Ignore stale preview responses from earlier batches.
+  if (!activeBatch.previewIds.has(previewId)) return;
+
+  activeBatch.previewIds.delete(previewId);
+  if (activeBatch.previewIds.size === 0) {
+    generation.setPreviewReady(generation.status);
+    activeBatch = null;
+  }
+}
+
+export function renameHistoryOutput(itemId: string, nextName: string) {
+  renameHistoryOutputInHistory(
+    itemId,
+    normalizeDownloadName(nextName),
+    useGenerationStore().audioUrl,
+  );
+}
+
+export async function removeHistoryOutput(itemId: string) {
+  await removeHistoryOutputInHistory(itemId, useGenerationStore().audioUrl, () => {
+    useGenerationStore().clearAudio();
+  });
+}
+
+export async function clearSavedAudioCache() {
+  resetTransientOutputState();
+  await clearGenerationHistory();
+  clearPersistedGenerationHistory();
+  await deletePreviewCacheStorage();
+}
+
+/** Activate reactive watchers to track changes and manage state transitions.
+ * Should be called once during app initialization (e.g., in App.vue setup).
+ */
+export function setupWorkerWatchers() {
+  const gen = useGenerationStore();
+
+  watch(
+    () => gen.audioUrl,
+    (next, previous) => {
+      if (previous && previous !== next && !isHistoryAudioUrl(previous)) {
+        revokeBlobUrl(previous);
+      }
+    },
+  );
+
+  watch(
+    () => gen.model.modelId,
+    (next, previous) => {
+      if (previous && previous !== next) {
+        resetTransientOutputState();
+        void deletePreviewCacheStorage();
+      }
+    },
+  );
 }

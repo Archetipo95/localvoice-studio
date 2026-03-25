@@ -2,269 +2,189 @@
 import { mount } from "@vue/test-utils";
 import { nextTick, ref } from "vue";
 import { describe, expect, it, vi } from "vitest";
+import { useEditorStore } from "../stores/editor";
+import { useGenerationStore } from "../stores/generation";
+import { useUiStore } from "../stores/ui";
+import { useVoiceStore } from "../stores/voice";
+import type { ModelDefinition } from "../types";
+import { NO_BLEND_VOICE } from "../utils/mix";
+import { mergeStubs, VOICE_BLEND_STUBS } from "../test/stubs";
 import {
   LONG_TEXT_NEWLINE_PAUSE_MS,
   LONG_TEXT_PARAGRAPH_PAUSE_MS,
   LONG_TEXT_PAUSE_MS,
 } from "../utils/long-text";
 
-const UButtonStub = {
-  props: ["label", "ariaExpanded", "ariaControls"],
-  emits: ["click"],
-  template:
-    '<button type="button" :aria-expanded="ariaExpanded" :aria-controls="ariaControls" @click="$emit(\'click\')">{{ label }}<slot /></button>',
-};
+const previewAudioUrls = ref(new Map<string, string>());
 
-const USelectStub = {
-  props: ["id", "modelValue", "items", "disabled", "ariaLabel"],
-  emits: ["update:modelValue"],
-  template: `
-    <select
-      :id="id"
-      :disabled="disabled"
-      :aria-label="ariaLabel"
-      :value="modelValue"
-      @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="item in items" :key="item.value" :value="item.value" :disabled="item.disabled">
-        {{ item.label }}
-      </option>
-    </select>
-  `,
-};
+vi.mock("../composables/useTtsWorker", () => ({
+  resetStudioState: () => {
+    const editor = useEditorStore();
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
 
-const UAccordionStub = {
-  props: ["items", "modelValue"],
-  emits: ["update:modelValue"],
-  methods: {
-    toggle(
-      this: { modelValue?: string[]; $emit: (event: string, value: string[]) => void },
-      value: string,
-    ) {
-      const current = Array.isArray(this.modelValue) ? [...this.modelValue] : [];
-      const next = current.includes(value)
-        ? current.filter((item) => item !== value)
-        : [...current, value];
-      this.$emit("update:modelValue", next);
-    },
+    editor.resetToDefault();
+    voice.resetToDefaults(generation.model);
+    generation.resetControls();
   },
-  template: `
-    <div>
-      <button
-        v-for="item in items"
-        :key="item.value"
-        type="button"
-        @click="toggle(item.value)"
-      >
-        {{ item.label }}
-      </button>
-      <template v-for="item in items" :key="item.value + '-content'">
-        <slot
-          v-if="Array.isArray(modelValue) && modelValue.includes(item.value)"
-          name="content"
-          :item="item"
-        />
-      </template>
-    </div>
-  `,
-};
+}));
+
+vi.mock("../composables/usePreviewCache", () => ({
+  previewAudioUrls,
+  buildMixPreviewId: (options: {
+    voice: string;
+    secondaryVoice: string;
+    secondaryRatio: number;
+    speed: number;
+    pitchSemitones: number;
+    sentencePauseMs: number;
+    newlinePauseMs: number;
+    paragraphPauseMs: number;
+  }) =>
+    `mix:${options.voice}|${options.secondaryVoice}|${options.secondaryRatio}|speed:${options.speed.toFixed(
+      2,
+    )}|pitch:${options.pitchSemitones.toFixed(1)}|sentence:${options.sentencePauseMs}|newline:${options.newlinePauseMs}|paragraph:${options.paragraphPauseMs}`,
+  buildVoicePreviewId: (options: {
+    voice: string;
+    speed: number;
+    pitchSemitones: number;
+    sentencePauseMs: number;
+    newlinePauseMs: number;
+    paragraphPauseMs: number;
+  }) =>
+    `preview:${options.voice}|speed:${options.speed.toFixed(2)}|pitch:${options.pitchSemitones.toFixed(
+      1,
+    )}|sentence:${options.sentencePauseMs}|newline:${options.newlinePauseMs}|paragraph:${options.paragraphPauseMs}`,
+}));
 
 describe("VoiceBlend", () => {
-  it("renders model download gate when model is not approved", async () => {
-    vi.resetModules();
+  it("renders the placeholder gate when model download is not approved", async () => {
+    const generation = useGenerationStore();
+    const ui = useUiStore();
 
-    const state = ref({
-      status: "idle",
-      device: null,
-      voices: [],
-      selectedVoice: "",
-      secondaryVoice: "__none__",
-      secondaryRatio: 0,
-      speed: 1,
-      pitchSemitones: 0,
-    } as any);
-    const dispatch = vi.fn();
-
-    vi.doMock("../composables/useAppState", () => ({
-      useAppState: () => ({ state, dispatch }),
-    }));
-    vi.doMock("../composables/useUiState", () => ({
-      secondaryVoiceControlsOpen: ref(false),
-      advancedControlsOpen: ref(false),
-      modelDownloadApproved: ref(false),
-      voicePresets: ref([]),
-      selectedPresetId: ref(""),
-      loadVoicePresets: vi.fn(() => []),
-      persistVoicePresets: vi.fn(),
-    }));
-    vi.doMock("../composables/useTtsWorker", () => ({
-      previewAudioUrls: ref(new Map()),
-      buildVoicePreviewId: vi.fn(() => "voice:mock"),
-      buildMixPreviewId: vi.fn(() => "mix:mock"),
-      cancelGeneration: vi.fn(),
-    }));
+    generation.status = "idle";
+    generation.device = null;
+    ui.modelDownloadApproved = false;
 
     const VoiceBlend = (await import("./VoiceBlend.vue")).default;
     const wrapper = mount(VoiceBlend, {
       global: {
-        stubs: {
-          UButton: UButtonStub,
-          UAccordion: UAccordionStub,
-          USelect: USelectStub,
-          UInput: { template: "<input />" },
-        },
+        stubs: mergeStubs(VOICE_BLEND_STUBS, {
+          UButton: { template: "<button type='button'><slot /></button>" },
+        }),
       },
     });
 
-    expect(wrapper.find("section[aria-hidden='true']").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Available after the model is downloaded.");
   });
 
-  it("updates voice settings, toggles drawers, and renders preview sources", async () => {
-    vi.resetModules();
+  it("shows tuned preview and resets controls", async () => {
+    previewAudioUrls.value = new Map();
 
-    const state = ref({
-      status: "ready",
-      device: "webgpu",
+    const generation = useGenerationStore();
+    const ui = useUiStore();
+    const voice = useVoiceStore();
+    const model: ModelDefinition = {
+      id: "m1",
+      label: "Model",
+      modelId: "model-1",
       voices: [
-        { id: "af_heart", label: "af_heart · Heart", gender: "female" },
-        { id: "am_michael", label: "am_michael · Michael", gender: "male" },
+        { id: "af_heart", label: "Heart" },
+        { id: "am_michael", label: "Michael" },
       ],
-      selectedVoice: "af_heart",
-      secondaryVoice: "__none__",
-      secondaryRatio: 0,
-      speed: 1,
-      pitchSemitones: 0,
-      sentencePauseMs: LONG_TEXT_PAUSE_MS,
-      sentencePauseMinMs: 0,
-      sentencePauseMaxMs: 300,
-      newlinePauseMs: LONG_TEXT_NEWLINE_PAUSE_MS,
-      newlinePauseMinMs: 0,
-      newlinePauseMaxMs: 300,
-      paragraphPauseMs: LONG_TEXT_PARAGRAPH_PAUSE_MS,
-      paragraphPauseMinMs: 0,
-      paragraphPauseMaxMs: 300,
-    } as any);
-    const dispatch = vi.fn();
+    };
 
-    const secondaryVoiceControlsOpen = ref(false);
-    const advancedControlsOpen = ref(false);
-    const modelDownloadApproved = ref(true);
-    const previewAudioUrls = ref(
-      new Map([
-        [
-          `voice:af_heart|speed:1.00|pitch:0.0|sentence:${LONG_TEXT_PAUSE_MS}|newline:${LONG_TEXT_NEWLINE_PAUSE_MS}|paragraph:${LONG_TEXT_PARAGRAPH_PAUSE_MS}`,
-          "blob:base",
-        ],
-        [
-          `voice:am_michael|speed:1.00|pitch:0.0|sentence:${LONG_TEXT_PAUSE_MS}|newline:${LONG_TEXT_NEWLINE_PAUSE_MS}|paragraph:${LONG_TEXT_PARAGRAPH_PAUSE_MS}`,
-          "blob:add",
-        ],
-        [
-          `mix:af_heart|am_michael|50|speed:1.00|pitch:0.0|sentence:${LONG_TEXT_PAUSE_MS}|newline:${LONG_TEXT_NEWLINE_PAUSE_MS}|paragraph:${LONG_TEXT_PARAGRAPH_PAUSE_MS}`,
-          "blob:mix",
-        ],
-      ]),
-    );
+    generation.status = "ready";
+    generation.device = "webgpu";
+    generation.model = model;
 
-    vi.doMock("../composables/useAppState", () => ({
-      useAppState: () => ({ state, dispatch }),
-    }));
-    vi.doMock("../composables/useUiState", () => ({
-      secondaryVoiceControlsOpen,
-      advancedControlsOpen,
-      modelDownloadApproved,
-      voicePresets: ref([]),
-      selectedPresetId: ref(""),
-      loadVoicePresets: vi.fn(() => []),
-      persistVoicePresets: vi.fn(),
-    }));
-    vi.doMock("../composables/useTtsWorker", () => ({
-      previewAudioUrls,
-      buildVoicePreviewId: vi.fn(
-        (options) =>
-          `voice:${options.voice}|speed:${options.speed.toFixed(2)}|pitch:${options.pitchSemitones.toFixed(1)}|sentence:${options.sentencePauseMs}|newline:${options.newlinePauseMs}|paragraph:${options.paragraphPauseMs}`,
-      ),
-      buildMixPreviewId: vi.fn(
-        (options) =>
-          `mix:${options.voice}|${options.secondaryVoice}|${options.secondaryRatio}|speed:${options.speed.toFixed(2)}|pitch:${options.pitchSemitones.toFixed(1)}|sentence:${options.sentencePauseMs}|newline:${options.newlinePauseMs}|paragraph:${options.paragraphPauseMs}`,
-      ),
-      cancelGeneration: vi.fn(),
-    }));
+    ui.modelDownloadApproved = true;
+    voice.selectedVoice = "af_heart";
+    voice.secondaryVoice = NO_BLEND_VOICE;
+    voice.secondaryRatio = 0;
+    voice.speed = 1;
+    voice.pitchSemitones = 0;
+    voice.pauses.sentence.value = LONG_TEXT_PAUSE_MS;
+    voice.pauses.newline.value = LONG_TEXT_NEWLINE_PAUSE_MS;
+    voice.pauses.paragraph.value = LONG_TEXT_PARAGRAPH_PAUSE_MS;
 
     const VoiceBlend = (await import("./VoiceBlend.vue")).default;
     const wrapper = mount(VoiceBlend, {
-      attachTo: document.body,
       global: {
-        stubs: {
-          UButton: UButtonStub,
-          UAccordion: UAccordionStub,
-          USelect: USelectStub,
-          UInput: {
-            props: ["modelValue"],
-            emits: ["update:modelValue"],
-            template:
-              '<input type="number" :value="modelValue" @input="$emit(\'update:modelValue\', ($event.target as HTMLInputElement).value)" />',
+        stubs: mergeStubs(VOICE_BLEND_STUBS, {
+          UButton: {
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>',
           },
-        },
+        }),
       },
     });
 
-    expect(wrapper.text()).toContain("0 st");
-    expect((wrapper.vm as any).previewSrc(null)).toBeUndefined();
-    expect((wrapper.vm as any).formatPitchSemitones(0)).toBe("0 st");
-    expect((wrapper.vm as any).formatPitchSemitones(-1)).toBe("-1.0 st");
+    expect(wrapper.text()).toContain("Tuned preview appears when you blend");
 
-    (wrapper.vm as any).handleVoiceChange("am_michael");
-    expect(dispatch).toHaveBeenCalledWith({ type: "voice", voice: "am_michael" });
-
-    await (wrapper.vm as any).toggleBlend();
+    voice.secondaryVoice = "am_michael";
+    voice.secondaryRatio = 50;
+    previewAudioUrls.value.set(
+      "mix:af_heart|am_michael|50|speed:1.00|pitch:0.0|sentence:150|newline:225|paragraph:325",
+      "blob:mix",
+    );
     await nextTick();
-    expect(secondaryVoiceControlsOpen.value).toBe(true);
+
+    expect(wrapper.find("#mix-output-audio").attributes("src")).toBe("blob:mix");
+
+    voice.speed = 1.7;
+    generation.audioUrl = "blob:active";
+    generation.error = "Generation canceled.";
+    const resetButton = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Reset all controls"));
+    expect(resetButton).toBeDefined();
+    await resetButton!.trigger("click");
+    expect(voice.speed).toBe(1);
+    expect(generation.audioUrl).toBe(null);
+    expect(generation.error).toBe(null);
+  });
+
+  it("updates blend controls and accordion state through component handlers", async () => {
+    previewAudioUrls.value = new Map();
+
+    const generation = useGenerationStore();
+    const ui = useUiStore();
+    const voice = useVoiceStore();
+
+    generation.status = "ready";
+    generation.device = "webgpu";
+    ui.modelDownloadApproved = true;
+    voice.voices = [
+      { id: "af_heart", label: "Heart" },
+      { id: "am_michael", label: "Michael" },
+    ];
+    voice.selectedVoice = "af_heart";
+    voice.secondaryVoice = "__none__";
+    voice.secondaryRatio = 0;
+
+    const VoiceBlend = (await import("./VoiceBlend.vue")).default;
+    const wrapper = mount(VoiceBlend, {
+      global: {
+        stubs: mergeStubs(VOICE_BLEND_STUBS, {
+          UButton: { template: "<button type='button'><slot /></button>" },
+        }),
+      },
+    });
 
     (wrapper.vm as any).handleSecondaryVoiceChange("am_michael");
-    expect(dispatch).toHaveBeenCalledWith({ type: "secondary-voice", voice: "am_michael" });
-    expect(dispatch).toHaveBeenCalledWith({ type: "secondary-ratio", ratio: 50 });
-
-    state.value.secondaryVoice = "am_michael";
-    state.value.secondaryRatio = 50;
     await nextTick();
+    expect(voice.secondaryVoice).toBe("am_michael");
+    expect(voice.secondaryRatio).toBe(50);
+    expect(ui.secondaryVoiceControlsOpen).toBe(true);
 
-    await wrapper.find("#secondary-ratio-input").setValue("35");
-    expect(dispatch).toHaveBeenCalledWith({ type: "secondary-ratio", ratio: 35 });
-
-    await wrapper.find("#speed-input").setValue("1.5");
-    expect(dispatch).toHaveBeenCalledWith({ type: "speed", speed: 1.5 });
-
-    await wrapper.find("#pitch-input").setValue("2");
-    expect(dispatch).toHaveBeenCalledWith({ type: "pitch", semitones: 2 });
-
-    state.value.pitchSemitones = 2;
+    (wrapper.vm as any).accordionOpen = "advanced";
     await nextTick();
-    expect(wrapper.text()).toContain("+2.0 st");
+    expect(ui.advancedControlsOpen).toBe(true);
+    expect(ui.secondaryVoiceControlsOpen).toBe(false);
 
-    await (wrapper.vm as any).toggleAdvanced();
-    await nextTick();
-    expect(advancedControlsOpen.value).toBe(true);
-
-    const pauseInputs = wrapper.findAll('input[type="number"]');
-    await pauseInputs[0]!.setValue("200");
-    await pauseInputs[1]!.setValue("300");
-    await pauseInputs[2]!.setValue("500");
-    expect(dispatch).toHaveBeenCalledWith({ type: "sentence-pause", pauseMs: 200 });
-    expect(dispatch).toHaveBeenCalledWith({ type: "newline-pause", pauseMs: 300 });
-    expect(dispatch).toHaveBeenCalledWith({ type: "paragraph-pause", pauseMs: 500 });
-
-    state.value.secondaryVoice = "__none__";
-    await nextTick();
     (wrapper.vm as any).handleSecondaryVoiceChange("__none__");
-    expect(dispatch).toHaveBeenCalledWith({ type: "secondary-voice", voice: "__none__" });
-    expect(dispatch).toHaveBeenCalledWith({ type: "secondary-ratio", ratio: 0 });
-
-    state.value.secondaryRatio = 25;
-    (wrapper.vm as any).handleSecondaryVoiceChange("am_michael");
-    expect(dispatch).toHaveBeenCalledWith({ type: "secondary-voice", voice: "am_michael" });
-
-    await (wrapper.vm as any).toggleBlend();
-    await (wrapper.vm as any).toggleAdvanced();
+    await nextTick();
+    expect(voice.secondaryVoice).toBe("__none__");
+    expect(voice.secondaryRatio).toBe(0);
   });
 });

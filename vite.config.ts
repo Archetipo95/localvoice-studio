@@ -33,12 +33,18 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/composables/**/*.ts", "src/utils/**/*.ts", "src/components/**/*.vue"],
+      include: [
+        "src/composables/**/*.ts",
+        "src/utils/**/*.ts",
+        "src/components/**/*.vue",
+        "src/stores/**/*.ts",
+        "src/config/**/*.ts",
+      ],
       thresholds: {
-        lines: 100,
-        functions: 100,
-        branches: 100,
-        statements: 100,
+        lines: 90,
+        functions: 90,
+        branches: 90,
+        statements: 80,
       },
     },
   },

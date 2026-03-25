@@ -14,11 +14,8 @@ export function parseSpeechMarkup(text: string): SpeechMarkupSegment[] {
 
   for (const match of text.matchAll(SPEECH_MARKUP_PATTERN)) {
     const full = match[0];
-    /* v8 ignore next -- capture group 1 is guaranteed by SPEECH_MARKUP_PATTERN. */
     const label = match[1] ?? "";
-    /* v8 ignore next -- capture group 2 is guaranteed by SPEECH_MARKUP_PATTERN. */
     const annotation = match[2] ?? "";
-    /* v8 ignore next -- RegExpStringIterator always reports an index for regex matches. */
     const index = match.index ?? 0;
 
     if (lastIndex < index) {
@@ -55,7 +52,6 @@ export function parseSpeechMarkup(text: string): SpeechMarkupSegment[] {
     segments.push({ type: "text", value: text.slice(lastIndex) });
   }
 
-  /* v8 ignore next -- covered by tests, but V8 reports this fallback inconsistently for regex iteration. */
   if (segments.length === 0) {
     return [{ type: "text", value: text }];
   }

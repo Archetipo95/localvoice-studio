@@ -4,6 +4,7 @@ import type { Editor } from "@tiptap/vue-3";
 import type { EditorCustomHandlers, EditorSuggestionMenuItem, EditorToolbarItem } from "@nuxt/ui";
 import { getPhoneticCharGroups } from "../utils/phonetic-chars";
 import PhoneticSuggestionMenu from "./PhoneticSuggestionMenu.vue";
+import EditorToolbar from "./EditorToolbar.vue";
 
 const props = defineProps<{
   modelValue: string;
@@ -26,6 +27,9 @@ watch(
   (value) => {
     const editor = editorRef.value?.editor;
     if (!editor?.commands?.setContent) return;
+    // In live markup editing, the editor is the source of truth.
+    // Re-applying parent HTML on every transaction can cause runaway resyncs.
+    if (props.isMarkupMode) return;
     if (editor.getHTML() === value) return;
     editor.commands.setContent(value, { emitUpdate: false });
   },
@@ -48,8 +52,24 @@ function getEditorText() {
   return editorRef.value?.editor?.getText({ blockSeparator: "\n" }) ?? "";
 }
 
+function clearEditorText() {
+  const editor = editorRef.value?.editor;
+  if (!editor?.commands) return;
+
+  if (editor.commands.setContent) {
+    editor.commands.setContent("", { emitUpdate: false });
+  } else if (editor.commands.clearContent) {
+    editor.commands.clearContent(false);
+  }
+
+  if (editor.commands.focus) {
+    editor.commands.focus("start");
+  }
+}
+
 defineExpose({
   getEditorText,
+  clearEditorText,
 });
 </script>
 
@@ -79,38 +99,21 @@ defineExpose({
     }"
     :image="false"
     :mention="false"
-    placeholder="Type something to generate speech..."
-    class="w-full font-mono ring ring-muted rounded-lg bg-default/80"
+    :placeholder="{ placeholder: 'Type something to generate speech...', mode: 'firstLine' }"
+    class="w-full max-h-[72vh] overflow-hidden font-mono ring ring-muted rounded-lg bg-default/80"
     :ui="{
-      content: 'bg-elevated rounded-b-lg p-2 border-t border-muted/80',
-      base: 'min-h-72 sm:px-4 py-3 bg-default border border-muted rounded-md text-toned',
+      content:
+        'bg-elevated rounded-b-lg p-2 border-t border-muted/80 flex-1 min-h-0 overflow-y-auto',
+      base: 'min-h-72 h-full sm:px-4 py-3 bg-default border border-muted rounded-md text-toned flex flex-col overflow-hidden',
     }"
     @update:model-value="isMarkupMode && emit('update:model-value')"
   >
-    <div class="flex flex-col sm:flex-row sm:items-center border-b border-muted/80 bg-default/90">
-      <UEditorToolbar
-        :editor="editor"
-        :items="toolbarItems"
-        layout="fixed"
-        color="neutral"
-        active-color="neutral"
-        variant="ghost"
-        active-variant="outline"
-        class="min-w-0 px-2 py-1 overflow-x-auto flex-1 [&_[role=separator]]:bg-muted [&_[role=separator]]:opacity-100 [&_[class*='divide-x']>*+*]:border-muted/90 [&_.border-l]:border-muted/90"
-      />
-      <div
-        class="flex items-center justify-end gap-2 border-t border-muted/80 px-2 py-2 text-toned sm:border-t-0"
-        aria-label="Toggle markup view"
-      >
-        <span class="text-xs font-semibold select-none">Plain</span>
-        <USwitch
-          :model-value="isMarkupMode"
-          @update:model-value="emit('toggle-mode', $event)"
-          aria-label="Toggle markup view"
-        />
-        <span class="text-xs font-semibold select-none">Markup</span>
-      </div>
-    </div>
+    <EditorToolbar
+      :editor="editor"
+      :items="toolbarItems"
+      :is-markup-mode="isMarkupMode"
+      @toggle-mode="emit('toggle-mode', $event)"
+    />
     <div
       v-if="isMarkupMode"
       class="flex items-center gap-3 border-b border-muted/80 px-3 py-2 text-[11px] text-toned"
