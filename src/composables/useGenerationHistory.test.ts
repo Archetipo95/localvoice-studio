@@ -79,7 +79,7 @@ describe("useGenerationHistory", () => {
     latestOutputSamples.value = null;
     latestOutputHz.value = DEFAULT_OUTPUT_SAMPLE_RATE;
     vi.restoreAllMocks();
-    vi.mocked(normalizeGenerationHistory).mockImplementation((items) => items);
+    vi.mocked(normalizeGenerationHistory).mockImplementation((items) => [...items]);
     vi.mocked(persistGenerationHistory).mockReset();
     vi.mocked(revokeBlobUrl).mockReset();
   });
@@ -134,10 +134,15 @@ describe("useGenerationHistory", () => {
   });
 
   it("persists history audio cache and ignores cache write failures", async () => {
-    const ResponseMock = vi.fn(function MockResponse(body: Blob, init?: ResponseInit) {
-      this.body = body;
-      this.init = init;
-    });
+    class ResponseMock {
+      body: Blob;
+      init: ResponseInit | undefined;
+
+      constructor(body: Blob, init?: ResponseInit) {
+        this.body = body;
+        this.init = init;
+      }
+    }
     vi.stubGlobal("Response", ResponseMock);
     const put = vi.fn(async () => undefined);
     vi.stubGlobal("caches", {

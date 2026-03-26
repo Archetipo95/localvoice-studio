@@ -9,6 +9,7 @@
     "preview": "vp preview",
     "check": "vp check",
     "check:fix": "vp check --fix",
+    "hooks:install": "git config core.hooksPath .githooks",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "lint": "vp lint",
     "format": "vp fmt",

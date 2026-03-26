@@ -1,0 +1,70 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="20" x2="1064" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#091611" />
+      <stop offset="0.5" stop-color="#0F2A1D" />
+      <stop offset="1" stop-color="#08110D" />
+    </linearGradient>
+    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(227 129) rotate(39.3884) scale(349.735 272.018)">
+      <stop stop-color="#63EDAA" stop-opacity="0.4" />
+      <stop offset="1" stop-color="#63EDAA" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1023 540) rotate(-155.85) scale(424.31 211.664)">
+      <stop stop-color="#51D89A" stop-opacity="0.3" />
+      <stop offset="1" stop-color="#51D89A" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="card" x1="774" y1="133" x2="1012" y2="471" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#143727" />
+      <stop offset="1" stop-color="#0A1711" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)" />
+  <rect x="46.5" y="46.5" width="1107" height="537" rx="29.5" stroke="rgba(255,255,255,0.08)" />
+  <rect width="1200" height="630" rx="32" fill="url(#glowA)" />
+  <rect width="1200" height="630" rx="32" fill="url(#glowB)" />
+
+  <g opacity="0.16">
+    <path d="M0 92H1200" stroke="white" />
+    <path d="M0 184H1200" stroke="white" />
+    <path d="M0 276H1200" stroke="white" />
+    <path d="M0 368H1200" stroke="white" />
+    <path d="M0 460H1200" stroke="white" />
+    <path d="M0 552H1200" stroke="white" />
+    <path d="M108 0V630" stroke="white" />
+    <path d="M216 0V630" stroke="white" />
+    <path d="M324 0V630" stroke="white" />
+    <path d="M432 0V630" stroke="white" />
+    <path d="M540 0V630" stroke="white" />
+    <path d="M648 0V630" stroke="white" />
+    <path d="M756 0V630" stroke="white" />
+    <path d="M864 0V630" stroke="white" />
+    <path d="M972 0V630" stroke="white" />
+    <path d="M1080 0V630" stroke="white" />
+  </g>
+
+  <rect x="734" y="126" width="324" height="378" rx="34" fill="url(#card)" stroke="rgba(255,255,255,0.08)" />
+  <circle cx="896" cy="250" r="110" fill="#0C1E16" />
+  <path d="M828 238C828 200.445 858.445 170 896 170C933.555 170 964 200.445 964 238V260C964 297.555 933.555 328 896 328C858.445 328 828 297.555 828 260V238Z" fill="#5CE59F"/>
+  <path d="M812 248C812 241.373 817.373 236 824 236C830.627 236 836 241.373 836 248C836 281.137 862.863 308 896 308C929.137 308 956 281.137 956 248C956 241.373 961.373 236 968 236C974.627 236 980 241.373 980 248C980 287.286 951.813 320.029 914 327.116V358H947C953.627 358 959 363.373 959 370C959 376.627 953.627 382 947 382H845C838.373 382 833 376.627 833 370C833 363.373 838.373 358 845 358H878V327.116C840.187 320.029 812 287.286 812 248Z" fill="#E3FFF0"/>
+  <path d="M780 203C802.814 175.38 825.629 161.57 848.443 161.57" stroke="#78F1B2" stroke-width="16" stroke-linecap="round"/>
+  <path d="M1012 203C989.186 175.38 966.371 161.57 943.557 161.57" stroke="#78F1B2" stroke-width="16" stroke-linecap="round"/>
+
+  <text x="92" y="144" fill="#9EFCBF" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5.5">PRIVATE BROWSER TEXT TO SPEECH</text>
+  <text x="92" y="258" fill="#F4FFF8" font-family="Helvetica, Arial, sans-serif" font-size="78" font-weight="800">LocalVoice</text>
+  <text x="92" y="336" fill="#F4FFF8" font-family="Helvetica, Arial, sans-serif" font-size="78" font-weight="800">Studio</text>
+  <text x="92" y="400" fill="#CDE9D8" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="500">
+    Kokoro-powered speech generation with no server, no tracking,
+  </text>
+  <text x="92" y="444" fill="#CDE9D8" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="500">
+    open source transparency, and offline use after the first download.
+  </text>
+
+  <g>
+    <rect x="92" y="500" width="206" height="46" rx="23" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.1)" />
+    <text x="121" y="530" fill="#E8FFF1" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="600">Local-first TTS</text>
+    <rect x="314" y="500" width="178" height="46" rx="23" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.1)" />
+    <text x="343" y="530" fill="#E8FFF1" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="600">Open source</text>
+    <rect x="508" y="500" width="192" height="46" rx="23" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.1)" />
+    <text x="537" y="530" fill="#E8FFF1" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="600">Installable PWA</text>
+  </g>
+</svg>

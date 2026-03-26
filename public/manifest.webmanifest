@@ -1,0 +1,30 @@
+{
+  "name": "LocalVoice Studio",
+  "short_name": "LocalVoice",
+  "description": "A privacy-first browser text to speech studio powered by Kokoro, with local generation and offline use after the first model download.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08140f",
+  "theme_color": "#08140f",
+  "lang": "en",
+  "categories": ["productivity", "music", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
