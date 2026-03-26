@@ -2,8 +2,12 @@ import { test, expect, Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 async function setTheme(page: Page, label: string): Promise<void> {
-  await page.getByRole("button", { name: /System|Light|Dark/ }).click();
-  await page.getByRole("menuitem", { name: label, exact: true }).click();
+  const themeButton = page.getByRole("button", { name: /System|Light|Dark/ });
+  await themeButton.click();
+  const themeItem = page.getByRole("menuitem", { name: label, exact: true });
+  await expect(themeItem).toBeVisible();
+  await themeItem.click();
+  await expect(themeButton).toHaveText(label, { timeout: 5000 });
   await expect(page.locator("#app")).not.toHaveAttribute("aria-hidden", "true", {
     timeout: 5000,
   });
@@ -79,7 +83,10 @@ test("keyboard users can apply markup and generate audio", async ({ page }) => {
   await editor.click();
   await editor.fill("Leave it better.");
 
-  await page.getByRole("button", { name: "Generate Audio" }).focus();
+  const generateButton = page.getByRole("button", { name: "Generate Audio" });
+  await expect(generateButton).toBeEnabled({ timeout: 10000 });
+  await tabTo(page, generateButton);
+  await expect(generateButton).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#output-audio")).toHaveAttribute("src", /^blob:/);
 });

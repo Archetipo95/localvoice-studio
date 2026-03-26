@@ -23,7 +23,8 @@ describe("RuntimeSelector", () => {
 
     expect(wrapper.text()).toContain("Loading model");
     expect(wrapper.text()).toContain("Downloading and preparing the Kokoro model in the browser.");
-    expect(wrapper.find("#runtime-select").exists()).toBe(false);
+    expect(wrapper.find("#runtime-select").exists()).toBe(true);
+    expect(wrapper.find("#runtime-select").attributes("disabled")).toBeDefined();
   });
 
   it("emits runtime changes from the selector", async () => {

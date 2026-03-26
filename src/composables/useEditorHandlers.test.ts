@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { customHandlers, textToHtml, toolbarItems } from "./useEditorHandlers";
 
+function itemKind(item: (typeof toolbarItems)[number][number]) {
+  return (item as { kind: string }).kind;
+}
+
 function createEditor(options?: {
   text?: string;
   windowText?: string;
@@ -146,9 +150,9 @@ describe("customHandlers", () => {
 
   it("exports the expected toolbar groups", () => {
     expect(toolbarItems).toHaveLength(4);
-    expect(toolbarItems[0]?.map((item) => item.kind)).toEqual(["undo", "redo"]);
-    expect(toolbarItems[1]?.[0]?.kind).toBe("pronunciation");
-    expect(toolbarItems[2]?.[0]?.kind).toBe("break");
-    expect(toolbarItems[3]?.map((item) => item.kind)).toEqual(["stressUp", "stressDown"]);
+    expect(toolbarItems[0]?.map(itemKind)).toEqual(["undo", "redo"]);
+    expect(toolbarItems[1]?.[0] ? itemKind(toolbarItems[1][0]) : undefined).toBe("pronunciation");
+    expect(toolbarItems[2]?.[0] ? itemKind(toolbarItems[2][0]) : undefined).toBe("break");
+    expect(toolbarItems[3]?.map(itemKind)).toEqual(["stressUp", "stressDown"]);
   });
 });

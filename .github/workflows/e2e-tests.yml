@@ -27,5 +27,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
       - name: End-to-end tests
         run: npm run test:e2e
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-artifacts
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

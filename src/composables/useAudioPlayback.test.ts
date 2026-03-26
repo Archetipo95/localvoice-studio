@@ -63,11 +63,11 @@ describe("useAudioPlayback", () => {
 
     document.body.append(first, second);
 
-    listener?.({ target: document.createElement("div") } as Event);
+    listener?.({ target: document.createElement("div") } as unknown as Event);
     expect(firstPause).not.toHaveBeenCalled();
     expect(secondPause).not.toHaveBeenCalled();
 
-    listener?.({ target: first } as Event);
+    listener?.({ target: first } as unknown as Event);
 
     expect(firstPause).not.toHaveBeenCalled();
     expect(secondPause).toHaveBeenCalledTimes(1);

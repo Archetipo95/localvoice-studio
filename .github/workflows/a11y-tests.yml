@@ -27,5 +27,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
       - name: Accessibility tests
         run: npm run test:a11y
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-a11y-artifacts
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

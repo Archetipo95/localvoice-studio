@@ -156,6 +156,34 @@ onUnmounted(() => {
     <UMain>
       <UContainer class="py-6">
         <section class="grid gap-6">
+          <section aria-labelledby="intro-title" class="space-y-3">
+            <h1 id="intro-title" class="text-2xl sm:text-3xl font-semibold text-highlighted">
+              Private browser text to speech with Kokoro
+            </h1>
+            <p class="max-w-3xl text-sm sm:text-base leading-7 text-toned">
+              LocalVoice Studio generates natural voice audio directly in your browser with no
+              server, no tracking, and offline use after the first model download. Built by
+              <a
+                class="font-medium text-highlighted hover:text-primary transition-colors"
+                href="https://martinmasevski.dev"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Martin Masevski
+              </a>
+              and published as open source on
+              <a
+                class="font-medium text-highlighted hover:text-primary transition-colors"
+                href="https://github.com/Archetipo95/localvoice-studio"
+                target="_blank"
+                rel="noreferrer"
+              >
+                GitHub
+              </a>
+              .
+            </p>
+          </section>
+
           <StudioSetup />
 
           <div class="grid gap-6">

@@ -33,7 +33,7 @@ defineExpose({
     </div>
   </UCard>
 
-  <div v-else class="flex flex-col gap-6 p-5 rounded-2xl ring ring-default bg-elevated">
+  <div class="flex flex-col gap-6 p-5 rounded-2xl ring ring-default bg-elevated">
     <p class="leading-relaxed">
       Private, local, in-browser TTS with markup editing, voice blending, and worker-backed
       generation.
@@ -47,7 +47,9 @@ defineExpose({
         aria-label="Runtime"
         :model-value="props.runtimePreference"
         @update:model-value="handleRuntimeChange"
-        :disabled="props.status === 'loading' || props.status === 'generating'"
+        :disabled="
+          props.status === 'loading' || props.status === 'generating' || Boolean(props.modelLoading)
+        "
         :items="[
           { label: 'GPU (faster)', value: 'webgpu', disabled: !props.gpuAvailable },
           { label: 'CPU (slower)', value: 'wasm' },

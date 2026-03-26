@@ -35,10 +35,15 @@ describe("usePreviewCache", () => {
   });
 
   it("stores previews and evicts the oldest entries beyond the cache limit", async () => {
-    const ResponseMock = vi.fn(function MockResponse(body: Blob, init?: ResponseInit) {
-      this.body = body;
-      this.init = init;
-    });
+    class ResponseMock {
+      body: Blob;
+      init: ResponseInit | undefined;
+
+      constructor(body: Blob, init?: ResponseInit) {
+        this.body = body;
+        this.init = init;
+      }
+    }
     vi.stubGlobal("Response", ResponseMock);
     const put = vi.fn(async () => undefined);
     const open = vi.fn(async () => ({ put }));
@@ -60,7 +65,7 @@ describe("usePreviewCache", () => {
     expect(previewAudioUrls.value.has("preview-0")).toBe(false);
     expect(previewAudioUrls.value.get("preview-30")).toBe("blob:30");
     await vi.waitFor(() => {
-      expect(put.mock.calls.some(([path]) => path === "/alias-30")).toBe(true);
+      expect(put).toHaveBeenCalledWith("/alias-30", expect.any(ResponseMock));
     });
   });
 
