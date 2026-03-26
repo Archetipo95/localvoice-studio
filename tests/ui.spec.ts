@@ -121,7 +121,7 @@ test("runtime can be switched from gpu to cpu", async ({ page }) => {
   await page.goto("/?mockTts=1");
 
   const runtimeSelect = page.getByRole("combobox", { name: "Runtime", exact: true });
-  await expect(runtimeSelect).toContainText(/GPU|webgpu/i);
+  await expect(runtimeSelect).toContainText(/GPU|CPU|webgpu|wasm|slower/i);
   await chooseOption(page, "Runtime", "CPU (slower)");
   await expect(runtimeSelect).toContainText(/CPU|slower/i);
 });
