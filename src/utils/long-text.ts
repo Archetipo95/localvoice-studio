@@ -38,7 +38,6 @@ export function splitTextForSynthesis(text: string, options: SplitOptions = {}):
     paragraphPauseMs,
   );
 
-  /* v8 ignore next -- non-empty normalized input always yields at least one chunk. */
   if (chunks.length > 0) {
     const last = chunks[chunks.length - 1];
     if (last) {
@@ -61,14 +60,10 @@ function appendSegmentChunks(
   BREAK_MARKUP_PATTERN.lastIndex = 0;
 
   for (const match of text.matchAll(BREAK_MARKUP_PATTERN)) {
-    /* v8 ignore next -- capture group 1 always exists for BREAK_MARKUP_PATTERN. */
     const label = match[1] ?? "";
-    /* v8 ignore next -- capture group 2 always exists for BREAK_MARKUP_PATTERN. */
     const pauseMs = Number(match[2] ?? 0);
-    /* v8 ignore next -- RegExpStringIterator always supplies match.index. */
     const index = match.index ?? 0;
 
-    /* v8 ignore next -- covered by integration flow; unit branch accounting is unstable with matchAll iterators. */
     if (lastIndex < index) {
       appendPlainTextChunks(
         chunks,
@@ -80,11 +75,9 @@ function appendSegmentChunks(
       );
     }
 
-    /* v8 ignore next -- label-only markup normalization is validated in higher-level synthesis tests. */
     if (label.trim()) {
       const trimmedLabel = label.trim();
       const previousChunk = chunks.at(-1);
-      /* v8 ignore next -- deterministic branch coverage depends on splitter tokenization internals. */
       if (previousChunk && previousChunk.text.length + trimmedLabel.length + 1 <= maxChunkLength) {
         chunks[chunks.length - 1] = {
           ...previousChunk,
@@ -102,14 +95,11 @@ function appendSegmentChunks(
       }
     }
 
-    /* v8 ignore next -- exercised in production synthesis flow; unit coverage is iterator-order sensitive. */
     if (chunks.length > 0) {
       const last = chunks[chunks.length - 1];
-      /* v8 ignore next -- chunks.length > 0 implies last is defined. */
       if (last) {
         chunks[chunks.length - 1] = {
           ...last,
-          /* v8 ignore next -- max merge branch is validated by integration-level synthesis tests. */
           pauseAfterMs: Math.max(last.pauseAfterMs, pauseMs),
         };
       }
@@ -145,13 +135,11 @@ function appendPlainTextChunks(
 
   for (const block of blocks) {
     if (/^\n+$/.test(block)) {
-      /* v8 ignore next 3 -- normalized.trim() guarantees the first retained block is not just newlines. */
       if (chunks.length === 0) {
         continue;
       }
 
       const last = chunks[chunks.length - 1];
-      /* v8 ignore next -- chunks.length > 0 implies last is defined. */
       if (last) {
         chunks[chunks.length - 1] = {
           ...last,
@@ -179,7 +167,6 @@ function splitTextBlock(text: string, maxChunkLength: number): string[] {
   const sentences = (normalized.match(SENTENCE_PATTERN) ?? [])
     .map((sentence) => sentence.trim())
     .filter(Boolean);
-  /* v8 ignore next -- non-empty input should normally produce at least one sentence match. */
   if (sentences.length === 0) {
     return splitOversizedSegment(text, maxChunkLength);
   }
@@ -196,7 +183,6 @@ function splitTextBlock(text: string, maxChunkLength: number): string[] {
         continue;
       }
 
-      /* v8 ignore next -- an oversized candidate implies currentChunk is already populated. */
       if (currentChunk) {
         chunks.push(currentChunk);
       }
@@ -204,7 +190,6 @@ function splitTextBlock(text: string, maxChunkLength: number): string[] {
     }
   }
 
-  /* v8 ignore next -- sentenceParts for non-empty sentences always leave a trailing chunk. */
   if (currentChunk) {
     chunks.push(currentChunk);
   }
@@ -214,7 +199,6 @@ function splitTextBlock(text: string, maxChunkLength: number): string[] {
 
 function splitOversizedSegment(segment: string, maxChunkLength: number): string[] {
   const trimmed = segment.trim();
-  /* v8 ignore next -- callers only pass non-empty trimmed segments. */
   if (!trimmed) {
     return [];
   }
@@ -262,7 +246,6 @@ function combineBoundedParts(parts: string[], maxChunkLength: number): string[] 
       continue;
     }
 
-    /* v8 ignore next -- an overflow here only occurs after current has been populated. */
     if (current) {
       chunks.push(current);
     }

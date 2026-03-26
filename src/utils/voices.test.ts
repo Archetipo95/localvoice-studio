@@ -71,5 +71,7 @@ describe("sortVoicesByGrade", () => {
     expect(voiceDisplayGender({ id: "xx_misc", label: "Misc", gender: " non-binary " })).toBe(
       "non-binary",
     );
+    expect(voiceDisplayGender({ id: "if_custom", label: "Custom" })).toBe("Female");
+    expect(voiceDisplayGender({ id: "im_custom", label: "Custom" })).toBe("Male");
   });
 });

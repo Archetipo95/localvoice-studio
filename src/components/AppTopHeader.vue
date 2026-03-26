@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { storeToRefs } from "pinia";
 import type { DropdownMenuItem } from "@nuxt/ui";
-import { setThemeMode, themeMode } from "../composables/useUiState";
+import { useUiStore } from "../stores/ui";
+
+const uiStore = useUiStore();
+const { themeMode } = storeToRefs(uiStore);
 
 const themes = ["system", "light", "dark"] as const;
 
@@ -19,7 +23,7 @@ const themeMenuItems = computed<DropdownMenuItem[]>(() =>
   themes.map((mode) => ({
     label: themeLabel(mode),
     icon: themeIcon(mode),
-    onSelect: () => setThemeMode(mode),
+    onSelect: () => uiStore.setThemeMode(mode),
     class: themeMode.value === mode ? "font-semibold" : undefined,
   })),
 );

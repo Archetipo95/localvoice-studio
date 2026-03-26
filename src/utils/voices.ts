@@ -73,7 +73,6 @@ export function voiceDisplayName(voice: VoiceOption): string {
     .filter(Boolean);
 
   if (parts.length >= 2 && parts[0] === voice.id) {
-    /* v8 ignore next -- when parts.length >= 2, parts[1] is always present. */
     return parts[1] ?? voice.label ?? voice.id;
   }
 

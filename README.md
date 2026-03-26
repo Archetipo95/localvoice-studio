@@ -77,7 +77,7 @@ npm run preview
 - 🎤 **Natural TTS** - Human-sounding speech synthesis with Kokoro
 - 🗣️ **Multi-voice** - Choose from model-backed voice options
 - ⚡ **Speed Control** - Adjust playback speed to your preference
-- 📥 **Download** - Export generated speech as WAV files
+- 📥 **Download** - Export generated speech as 16-bit WAV files
 - 🎚️ **Web Worker** - Off-thread processing keeps the UI responsive
 - 🔄 **GPU/CPU** - Automatic runtime selection (WebGPU preferred, WASM fallback)
 - 💾 **Offline** - Works offline after the first model download

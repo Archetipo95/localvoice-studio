@@ -1,6 +1,8 @@
 import { config } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
 import { ref } from "vue";
 import { routeLocationKey, routerKey } from "vue-router";
+import { beforeEach } from "vitest";
 
 const mockRoute = {
   fullPath: "/",
@@ -35,3 +37,7 @@ config.global.provide = {
   [routeLocationKey as symbol]: mockRoute,
   [routerKey as symbol]: mockRouter,
 };
+
+beforeEach(() => {
+  setActivePinia(createPinia());
+});

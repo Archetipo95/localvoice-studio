@@ -1,54 +1,73 @@
 export type RuntimeDevice = "webgpu" | "wasm";
+export type AppStatus = "idle" | "loading" | "generating" | "ready" | "error";
+export type ActivityPhase =
+  | "idle"
+  | "model-loading"
+  | "model-fallback"
+  | "generating"
+  | "preview-loading"
+  | "error";
 
-export type WorkerMessage = InitRequest | GenerateRequest | GeneratePreviewRequest | CancelRequest;
+export type AudioMimeType = "audio/wav";
+export type AudioExtension = "wav";
 
-export type WorkerResponse =
-  | InitProgressMessage
-  | ReadyMessage
-  | ResultMessage
-  | PreviewResultMessage
-  | WorkerErrorMessage;
-
-export interface VoiceOption {
-  id: string;
-  label: string;
-  gender?: string;
-  language?: string;
-  targetQuality?: string;
-  overallGrade?: string;
-  traits?: string;
+export interface ExportMetadata {
+  mimeType: AudioMimeType;
+  extension: AudioExtension;
+  bitDepth: 16;
+  sizeBytes: number;
+  fileName: string;
 }
 
-export interface ModelDefinition {
+export interface GenerationHistoryItem {
   id: string;
-  label: string;
-  modelId: string;
-  language?: string;
-  voices: VoiceOption[];
-}
-
-export interface VoicePreset {
-  id: string;
-  name: string;
+  createdAt: number;
+  durationMs: number;
+  textLength: number;
+  textPreview: string;
   voice: string;
   secondaryVoice: string;
   secondaryRatio: number;
   speed: number;
   pitchSemitones: number;
   sentencePauseMs: number;
-  sentencePauseMinMs: number;
-  sentencePauseMaxMs: number;
   newlinePauseMs: number;
-  newlinePauseMinMs: number;
-  newlinePauseMaxMs: number;
   paragraphPauseMs: number;
-  paragraphPauseMinMs: number;
-  paragraphPauseMaxMs: number;
+  fileName: string;
+  audioUrl: string;
+  cacheKey: string;
 }
+
+export interface PersistedGenerationHistoryItem {
+  id: string;
+  createdAt: number;
+  durationMs: number;
+  textLength: number;
+  textPreview: string;
+  voice: string;
+  secondaryVoice: string;
+  secondaryRatio: number;
+  speed: number;
+  pitchSemitones: number;
+  sentencePauseMs: number;
+  newlinePauseMs: number;
+  paragraphPauseMs: number;
+  fileName: string;
+  cacheKey: string;
+}
+
+export type WorkerMessage = InitRequest | GenerateRequest | GeneratePreviewRequest | CancelRequest;
+
+export type WorkerResponse =
+  | ReadyResponse
+  | ResultMessage
+  | PreviewResultMessage
+  | WorkerErrorMessage
+  | InitProgressResponse;
 
 export interface InitRequest {
   type: "init";
-  preferredDevice: RuntimeDevice | "auto";
+  preferredDevice: "auto" | "webgpu" | "wasm";
   model: ModelDefinition;
   mock?: {
     enabled: boolean;
@@ -62,12 +81,12 @@ export interface GenerateRequest {
   voice: string;
   secondaryVoice: string;
   secondaryRatio: number;
-  language?: string;
   speed: number;
   pitchSemitones: number;
   sentencePauseMs: number;
   newlinePauseMs: number;
   paragraphPauseMs: number;
+  fileName: string;
 }
 
 export interface GeneratePreviewRequest {
@@ -87,24 +106,24 @@ export interface CancelRequest {
   type: "cancel";
 }
 
-export interface InitProgressMessage {
+export interface InitProgressResponse {
   type: "init-progress";
-  phase: "loading" | "ready" | "fallback";
+  phase: "loading" | "fallback";
   device: RuntimeDevice;
 }
 
-export interface ReadyMessage {
+export interface ReadyResponse {
   type: "ready";
-  device: RuntimeDevice;
   voices: VoiceOption[];
-  language?: string;
+  language: string | null;
+  device: RuntimeDevice;
 }
 
 export interface ResultMessage {
   type: "result";
   audioBuffer: ArrayBuffer;
   sampleRate: number;
-  mimeType: "audio/wav";
+  mimeType: AudioMimeType;
 }
 
 export interface PreviewResultMessage {
@@ -112,35 +131,40 @@ export interface PreviewResultMessage {
   previewId: string;
   audioBuffer: ArrayBuffer;
   sampleRate: number;
-  mimeType: "audio/wav";
+  mimeType: AudioMimeType;
 }
 
 export interface WorkerErrorMessage {
   type: "error";
   message: string;
-  recoverable: boolean;
+  recoverable?: boolean;
 }
 
-export type AppStatus = "idle" | "loading" | "ready" | "generating" | "error";
-export type ActivityPhase =
-  | "idle"
-  | "model-loading"
-  | "model-fallback"
-  | "generating"
-  | "preview-loading"
-  | "error";
+export interface VoiceOption {
+  id: string;
+  label: string;
+  language?: string;
+  gender?: string;
+  targetQuality?: string;
+  overallGrade?: string;
+  traits?: string[];
+}
 
-export interface AppState {
-  status: AppStatus;
-  activityPhase: ActivityPhase;
-  model: ModelDefinition;
-  device: RuntimeDevice | null;
+export interface ModelDefinition {
+  id: string;
+  modelId: string;
+  name?: string;
+  label?: string;
   voices: VoiceOption[];
-  selectedVoice: string;
+  language?: string;
+}
+
+export interface VoicePreset {
+  id: string;
+  name: string;
+  voice: string;
   secondaryVoice: string;
   secondaryRatio: number;
-  language: string | null;
-  text: string;
   speed: number;
   pitchSemitones: number;
   sentencePauseMs: number;
@@ -152,7 +176,4 @@ export interface AppState {
   paragraphPauseMs: number;
   paragraphPauseMinMs: number;
   paragraphPauseMaxMs: number;
-  error: string | null;
-  audioUrl: string | null;
-  canCancel: boolean;
 }

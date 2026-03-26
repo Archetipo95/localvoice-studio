@@ -91,7 +91,6 @@ export function mergeAudioChunks(
     offset += chunk.length;
 
     if (index < chunks.length - 1) {
-      /* v8 ignore next -- pauseSamples is derived to match each inter-chunk gap. */
       offset += pauseSamples[index] ?? 0;
     }
   });
@@ -116,16 +115,13 @@ export function pitchShiftAudio(samples: Float32Array, semitones: number): Float
     return stretched;
   }
 
-  /* v8 ignore next -- branch depends on engine-specific window overlap math. */
   if (stretched.length > samples.length) {
     return stretched.slice(0, samples.length);
   }
 
-  /* v8 ignore start -- depends on FFT-window edge cases that are nondeterministic across engines. */
   const padded = new Float32Array(samples.length);
   padded.set(stretched);
   return padded;
-  /* v8 ignore stop */
 }
 
 function encodeWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
@@ -173,7 +169,6 @@ function readAscii(view: DataView, offset: number, length: number): string {
   return value;
 }
 
-/* v8 ignore start -- covered indirectly via pitchShiftAudio, not branch-addressable via public API. */
 function resampleLinear(samples: Float32Array, outputLength: number): Float32Array {
   if (outputLength <= 0 || samples.length === 0) {
     return new Float32Array(0);
@@ -251,4 +246,3 @@ function hannWindow(length: number): Float32Array {
 
   return window;
 }
-/* v8 ignore stop */

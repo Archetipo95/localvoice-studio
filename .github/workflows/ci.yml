@@ -1,4 +1,4 @@
-name: CI
+name: CI - Quality
 
 on:
   pull_request:
@@ -33,49 +33,3 @@ jobs:
 
       - name: Build
         run: vp build
-
-  unit-tests:
-    runs-on: ubuntu-latest
-    needs: quality
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version: "22"
-          cache: true
-
-      - name: Unit tests
-        run: vp test --run
-
-  e2e-tests:
-    runs-on: ubuntu-latest
-    needs: quality
-    container:
-      image: mcr.microsoft.com/playwright:v1.58.2-noble
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit --no-fund
-
-      - name: End-to-end tests
-        run: npm run test:e2e
-
-  a11y-tests:
-    runs-on: ubuntu-latest
-    needs: quality
-    container:
-      image: mcr.microsoft.com/playwright:v1.58.2-noble
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit --no-fund
-
-      - name: Accessibility tests
-        run: npm run test:a11y

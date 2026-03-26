@@ -87,7 +87,7 @@ test("generation produces playable output and a download link", async ({ page })
 
   await expect(audio).toHaveAttribute("src", /^blob:/);
   await expect(download).toHaveAttribute("href", /^blob:/);
-  await expect(download).toHaveAttribute("download", "localvoice-studio.wav");
+  await expect(download).toHaveAttribute("download", /^localvoice-.*\.wav$/);
 });
 
 test("typing into the editor preserves the full text", async ({ page }) => {
@@ -138,4 +138,47 @@ test("generating with a blended voice produces output", async ({ page }) => {
   await page.getByRole("button", { name: "Generate Audio" }).click();
 
   await expect(page.locator("#output-audio")).toHaveAttribute("src", /^blob:/);
+});
+
+test("placeholder shown when editor is empty", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  const editor = page.locator(".tiptap[contenteditable='true']");
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await editor.press("ControlOrMeta+A");
+  await editor.press("Backspace");
+
+  const placeholderHost = editor.locator("[data-placeholder]").first();
+  if (await placeholderHost.count()) {
+    await expect(placeholderHost).toBeVisible();
+    await expect(placeholderHost).toHaveAttribute(
+      "data-placeholder",
+      /Type something to generate speech\.\.\./,
+    );
+    return;
+  }
+
+  const firstParagraph = editor.locator("p").first();
+  await expect(firstParagraph).toBeVisible();
+  await expect
+    .poll(async () => {
+      const text = await editor.evaluate((element) => element.textContent?.trim() ?? "");
+      return text;
+    })
+    .toBe("");
+});
+
+test("placeholder hidden when text is entered", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  const editor = page.locator(".tiptap[contenteditable='true']");
+  await editor.click();
+  await editor.press("ControlOrMeta+A");
+  await editor.press("Backspace");
+  await editor.type("Hello world");
+  await expect(editor).toContainText("Hello world");
+  if (await editor.locator("[data-placeholder]").count()) {
+    await expect(editor.locator("[data-placeholder]")).toHaveCount(0);
+  }
 });
