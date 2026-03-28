@@ -5,6 +5,9 @@ export const LONG_TEXT_PARAGRAPH_PAUSE_MS = 325;
 export const LONG_TEXT_MAX_CHARS = 260;
 
 const SENTENCE_PATTERN = /[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g;
+const SENTENCE_BOUNDARY_PUNCTUATION = ".!?";
+const SENTENCE_END_CLOSERS = "\"'”’)]}";
+const SENTENCE_START_WRAPPERS = "\"'“‘([{";
 
 interface SplitOptions {
   maxChunkLength?: number;
@@ -164,9 +167,7 @@ function appendPlainTextChunks(
 
 function splitTextBlock(text: string, maxChunkLength: number): string[] {
   const normalized = text.trim();
-  const sentences = (normalized.match(SENTENCE_PATTERN) ?? [])
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
+  const sentences = splitIntoSentences(normalized);
   if (sentences.length === 0) {
     return splitOversizedSegment(text, maxChunkLength);
   }
@@ -195,6 +196,107 @@ function splitTextBlock(text: string, maxChunkLength: number): string[] {
   }
 
   return chunks;
+}
+
+function splitIntoSentences(text: string): string[] {
+  const patternSentences = trySplitIntoSentencesWithPattern(text);
+  if (patternSentences) {
+    return patternSentences;
+  }
+
+  return splitIntoSentencesConservatively(text);
+}
+
+function trySplitIntoSentencesWithPattern(text: string): string[] | null {
+  const sentences: string[] = [];
+  let lastIndex = 0;
+  SENTENCE_PATTERN.lastIndex = 0;
+
+  for (const match of text.matchAll(SENTENCE_PATTERN)) {
+    const index = match.index ?? 0;
+    if (text.slice(lastIndex, index).trim()) {
+      return null;
+    }
+
+    const sentence = (match[0] ?? "").trim();
+    if (sentence) {
+      sentences.push(sentence);
+    }
+    lastIndex = index + (match[0]?.length ?? 0);
+  }
+
+  if (text.slice(lastIndex).trim()) {
+    return null;
+  }
+
+  return sentences;
+}
+
+function splitIntoSentencesConservatively(text: string): string[] {
+  const sentences: string[] = [];
+  let sentenceStart = 0;
+  let index = 0;
+
+  while (index < text.length) {
+    if (!SENTENCE_BOUNDARY_PUNCTUATION.includes(text[index] ?? "")) {
+      index += 1;
+      continue;
+    }
+
+    let boundaryEnd = index + 1;
+    while (
+      boundaryEnd < text.length &&
+      SENTENCE_BOUNDARY_PUNCTUATION.includes(text[boundaryEnd]!)
+    ) {
+      boundaryEnd += 1;
+    }
+    while (boundaryEnd < text.length && SENTENCE_END_CLOSERS.includes(text[boundaryEnd]!)) {
+      boundaryEnd += 1;
+    }
+
+    const whitespaceStart = boundaryEnd;
+    while (boundaryEnd < text.length && /\s/.test(text[boundaryEnd]!)) {
+      boundaryEnd += 1;
+    }
+
+    if (boundaryEnd >= text.length) {
+      pushSentence(sentenceStart, text.length);
+      sentenceStart = text.length;
+      break;
+    }
+
+    if (whitespaceStart === boundaryEnd || !looksLikeSentenceStart(text, boundaryEnd)) {
+      index = boundaryEnd;
+      continue;
+    }
+
+    pushSentence(sentenceStart, whitespaceStart);
+    sentenceStart = boundaryEnd;
+    index = boundaryEnd;
+  }
+
+  if (sentenceStart < text.length) {
+    pushSentence(sentenceStart, text.length);
+  }
+
+  return sentences;
+
+  function pushSentence(start: number, end: number) {
+    const sentence = text.slice(start, end).trim();
+    if (sentence) {
+      sentences.push(sentence);
+    }
+  }
+}
+
+function looksLikeSentenceStart(text: string, startIndex: number): boolean {
+  let index = startIndex;
+  while (index < text.length && SENTENCE_START_WRAPPERS.includes(text[index]!)) {
+    index += 1;
+  }
+
+  const nextCharacter = text[index];
+  return nextCharacter ? /[A-Z0-9]/.test(nextCharacter) : true;
 }
 
 function splitOversizedSegment(segment: string, maxChunkLength: number): string[] {
