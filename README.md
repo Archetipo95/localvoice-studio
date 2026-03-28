@@ -2,7 +2,7 @@
 
 A privacy-first, browser-based text-to-speech synthesis studio. Generate speech locally in your browser with no server, no data collection, and no external API calls.
 
-Built with [Kokoro](https://github.com/remsky/Kokoro), TypeScript, Vite, and ONNX Runtime Web.
+Built with [Kokoro](https://github.com/hexgrad/kokoro), TypeScript, Vite, and ONNX Runtime Web.
 
 ## Why Local-First?
 
@@ -29,7 +29,7 @@ The app targets the Kokoro model directly in the browser through `kokoro-js`.
 - **[Vue 3](https://vuejs.org/)** - Reactive UI framework
 - **[Vite](https://vitejs.dev/)** - Fast build tool and dev server
 - **[TypeScript](https://www.typescriptlang.org/)** - Type-safe JavaScript
-- **[Kokoro](https://github.com/remsky/Kokoro)** - State-of-the-art open-source TTS
+- **[Kokoro](https://github.com/hexgrad/kokoro)** - State-of-the-art open-source TTS
 - **[Nuxt UI](https://ui.nuxt.com/)** - Beautiful, accessible components
 - **[ONNX Runtime Web](https://github.com/microsoft/onnxruntime)** - In-browser model inference
 - **[Playwright](https://playwright.dev/)** - Browser automation testing
@@ -177,7 +177,7 @@ This project is built on top of exceptional open source software:
 
 ### Core TTS Engine
 
-- **[Kokoro](https://github.com/remsky/Kokoro)** - Open-source, human-like speech synthesizer
+- **[Kokoro](https://github.com/hexgrad/kokoro)** - Open-source, human-like speech synthesizer
   - Fast, naturally-sounding TTS with multi-voice support
 
 ### ML & Inference Runtime
