@@ -4,7 +4,7 @@ This project depends on third-party open source software.
 
 ## Core Runtime
 
-- Kokoro: https://github.com/remsky/Kokoro
+- Kokoro: https://github.com/hexgrad/kokoro
 - kokoro-js: https://www.npmjs.com/package/kokoro-js
 - Transformers.js: https://github.com/huggingface/transformers.js
 - ONNX Runtime: https://github.com/microsoft/onnxruntime
