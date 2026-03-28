@@ -100,11 +100,11 @@ defineExpose({
     :image="false"
     :mention="false"
     :placeholder="{ placeholder: 'Type something to generate speech...', mode: 'firstLine' }"
-    class="w-full max-h-[72vh] overflow-hidden font-mono ring ring-muted rounded-lg bg-default/80"
+    class="flex min-h-72 w-full max-h-[72vh] flex-col overflow-hidden font-mono ring ring-muted rounded-lg bg-default/80"
     :ui="{
       content:
-        'bg-elevated rounded-b-lg p-2 border-t border-muted/80 flex-1 min-h-0 overflow-y-auto',
-      base: 'min-h-72 h-full sm:px-4 py-3 bg-default border border-muted rounded-md text-toned flex flex-col overflow-hidden',
+        'relative h-0 flex-1 min-h-0 overflow-y-auto rounded-b-lg border-t border-muted/80 bg-elevated p-2',
+      base: 'min-h-full sm:px-4 py-3 bg-default border border-muted rounded-md text-toned',
     }"
     @update:model-value="isMarkupMode && emit('update:model-value')"
   >
