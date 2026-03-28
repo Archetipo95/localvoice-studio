@@ -12,6 +12,6 @@ button {
 }
 
 .tiptap {
-  max-height: 100%;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }

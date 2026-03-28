@@ -144,4 +144,27 @@ describe("splitTextForSynthesis", () => {
       { text: "label", pauseAfterMs: 0 },
     ]);
   });
+
+  it("preserves sentences with question marks followed by closing double quotes", () => {
+    const text = 'Lorem ipsum "can this work?" or maybe "how far can I push this?"';
+
+    const chunks = splitTextForSynthesis(text);
+
+    expect(chunks).toEqual([{ text, pauseAfterMs: 0 }]);
+  });
+
+  it("reconstructs quoted prose without dropping the text between paragraphs", () => {
+    const text = `Start test. Lorem ipsum "can this work?" or maybe "how far can I push this?"
+
+End test`;
+
+    const chunks = splitTextForSynthesis(text);
+    const reconstructed = chunks
+      .map((chunk) => chunk.text)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(reconstructed).toBe(text.replace(/\s+/g, " ").trim());
+  });
 });

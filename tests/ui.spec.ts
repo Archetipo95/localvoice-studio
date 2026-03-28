@@ -100,6 +100,48 @@ test("typing into the editor preserves the full text", async ({ page }) => {
   await expect(editor).toContainText("Hello world.");
 });
 
+test("long editor content keeps the toolbar visible and scrolls inside the editor panel", async ({
+  page,
+}) => {
+  await page.goto("/?mockTts=1");
+
+  const editor = page.locator(".tiptap[contenteditable='true']");
+  const longText = Array.from(
+    { length: 120 },
+    (_, index) =>
+      `Line ${index + 1}: This is a long paragraph to force the editor to overflow and scroll.`,
+  ).join("\n\n");
+
+  await editor.click();
+  await editor.fill(longText);
+
+  const toolbar = page.locator('[aria-label="Toggle markup view"]').first();
+
+  await expect(toolbar).toBeVisible();
+  await expect
+    .poll(async () => {
+      return await editor.evaluate((element) => {
+        const container = element.parentElement;
+        return container ? container.scrollHeight > container.clientHeight : false;
+      });
+    })
+    .toBe(true);
+
+  await editor.evaluate((element) => {
+    const container = element.parentElement;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  });
+
+  await expect
+    .poll(async () => {
+      return await editor.evaluate((element) => element.parentElement?.scrollTop ?? 0);
+    })
+    .toBeGreaterThan(0);
+  await expect(toolbar).toBeVisible();
+});
+
 test("phonetic suggestion menu opens and inserts an IPA symbol", async ({ page }) => {
   await page.goto("/?mockTts=1");
 
