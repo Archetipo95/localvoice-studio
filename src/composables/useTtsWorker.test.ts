@@ -54,6 +54,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult: vi.fn(async () => undefined),
       loadPreviewFromCache: vi.fn(async () => null),
       clearPreviewCache: vi.fn(),
@@ -147,6 +148,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult: vi.fn(async () => undefined),
       loadPreviewFromCache: vi.fn(async () => null),
       clearPreviewCache: vi.fn(),
@@ -228,6 +230,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult: vi.fn(async () => undefined),
       loadPreviewFromCache: vi.fn(async () => null),
       clearPreviewCache,
@@ -319,6 +322,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult: vi.fn(async () => undefined),
       loadPreviewFromCache: vi.fn(async () => null),
       clearPreviewCache,
@@ -410,6 +414,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult,
       loadPreviewFromCache: vi.fn(async (previewId: string) => previewId === "voice:am_michael"),
       clearPreviewCache: vi.fn(),
@@ -502,6 +507,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult: vi.fn(),
       loadPreviewFromCache,
       clearPreviewCache: vi.fn(),
@@ -572,6 +578,152 @@ describe("useTtsWorker", () => {
     expect(revokeBlobUrl).toHaveBeenCalledWith("blob:old");
   });
 
+  it("requests, caches, and plays pronunciation previews without mutating main output", async () => {
+    const workerInstances: MockWorker[] = [];
+    const audioInstances: AudioMock[] = [];
+    const storePreviewResult = vi.fn();
+    const loadPreviewFromCache = vi
+      .fn(async (_previewId: string) => false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const audioBufferToWavBlob = vi.fn(
+      (buffer: ArrayBuffer, _sampleRate: number, mimeType: string) =>
+        new Blob([buffer], { type: mimeType }),
+    );
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pronunciation");
+
+    class MockWorker {
+      private readonly listeners: Array<(event: MessageEvent<any>) => void> = [];
+      postMessage = vi.fn();
+      terminate = vi.fn();
+
+      addEventListener(type: string, listener: (event: MessageEvent<any>) => void) {
+        if (type === "message") {
+          this.listeners.push(listener);
+        }
+      }
+
+      emit(data: any) {
+        for (const listener of this.listeners) {
+          listener({ data } as MessageEvent<any>);
+        }
+      }
+    }
+
+    class AudioMock {
+      src = "";
+      currentTime = 0;
+      paused = true;
+      constructor() {
+        audioInstances.push(this);
+      }
+      play = vi.fn(async () => {
+        this.paused = false;
+      });
+      pause = vi.fn(() => {
+        this.paused = true;
+      });
+    }
+
+    Object.defineProperty(globalThis, "Audio", {
+      value: AudioMock,
+      configurable: true,
+      writable: true,
+    });
+
+    Object.defineProperty(globalThis, "Worker", {
+      value: class extends MockWorker {
+        constructor() {
+          super();
+          workerInstances.push(this);
+        }
+      },
+      configurable: true,
+      writable: true,
+    });
+
+    vi.doMock("../utils/audio", () => ({
+      audioBufferToWavBlob,
+    }));
+
+    vi.doMock("./usePreviewCache", () => ({
+      previewAudioUrls: ref(
+        new Map([["pronunciation:[stewardship](/stjuːɚdʃɪp/)", "blob:cached"]]),
+      ),
+      previewAudioSamples: shallowRef(new Map()),
+      buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
+      buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
+        `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
+      storePreviewResult,
+      loadPreviewFromCache,
+      clearPreviewCache: vi.fn(),
+      deletePreviewCacheStorage: vi.fn(async () => true),
+      revokeBlobUrl: vi.fn(),
+    }));
+
+    vi.doMock("./useGenerationHistory", () => ({
+      generationHistory: ref([]),
+      latestExportMetadata: ref(null),
+      latestOutputSamples: ref(null),
+      latestOutputHz: ref(null),
+      appendHistoryItem: vi.fn(() => null),
+      persistHistoryAudioToCache: vi.fn(async () => undefined),
+      clearGenerationHistory: vi.fn(async () => undefined),
+      isHistoryAudioUrl: vi.fn(() => false),
+      renameHistoryOutput: vi.fn(),
+      removeHistoryOutput: vi.fn(async () => undefined),
+      setLatestOutput: vi.fn(),
+      clearLatestOutput: vi.fn(),
+    }));
+
+    const mod = await import("./useTtsWorker");
+    const { useGenerationStore } = await import("../stores/generation");
+    const { useVoiceStore } = await import("../stores/voice");
+
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
+    generation.status = "ready";
+    generation.device = "webgpu";
+    generation.audioUrl = "blob:main-output";
+    voice.selectedVoice = "af_heart";
+    voice.secondaryVoice = "__none__";
+    voice.secondaryRatio = 0;
+
+    mod.startWorker(mod.buildInitMessage());
+    const worker = workerInstances[0]!;
+
+    const previewPromise = mod.playPronunciationPreview("[stewardship](/stjuːɚdʃɪp/)");
+    await Promise.resolve();
+    expect(worker.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "generate-pronunciation-preview",
+        text: "[stewardship](/stjuːɚdʃɪp/)",
+      }),
+    );
+
+    worker.emit({
+      type: "pronunciation-preview-result",
+      previewId: "pronunciation:[stewardship](/stjuːɚdʃɪp/)",
+      audioBuffer: new Float32Array([0.2, -0.2]).buffer,
+      sampleRate: 24000,
+      mimeType: "audio/wav",
+    });
+
+    await expect(previewPromise).resolves.toBe("blob:pronunciation");
+    expect(storePreviewResult).toHaveBeenCalled();
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(generation.audioUrl).toBe("blob:main-output");
+    expect(audioInstances).toHaveLength(1);
+    expect(audioInstances[0]?.src).toBe("blob:pronunciation");
+    expect(audioInstances[0]?.currentTime).toBe(0);
+    expect(audioInstances[0]?.play).toHaveBeenCalledTimes(1);
+
+    await expect(mod.requestPronunciationPreview("[stewardship](/stjuːɚdʃɪp/)")).resolves.toBe(
+      "blob:cached",
+    );
+  });
+
   it("handles worker init progress, ready, synthesis result, recoverable fallback, and terminal errors", async () => {
     vi.useFakeTimers();
 
@@ -626,6 +778,7 @@ describe("useTtsWorker", () => {
       buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
       buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
         `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
       storePreviewResult: vi.fn(),
       loadPreviewFromCache,
       clearPreviewCache: vi.fn(),

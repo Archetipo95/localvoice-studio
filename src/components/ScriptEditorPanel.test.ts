@@ -54,4 +54,49 @@ describe("ScriptEditorPanel", () => {
     await nextTick();
     expect(wrapper.text()).toContain("Plain mode is preview-only");
   });
+
+  it("plays the selected word from the toolbar handler and surfaces preview errors", async () => {
+    vi.resetModules();
+    const playPronunciationPreview = vi.fn().mockRejectedValue(new Error("Preview failed."));
+    vi.doMock("../composables/useTtsWorker", () => ({
+      playPronunciationPreview,
+    }));
+
+    const ScriptEditorPanel = (await import("./ScriptEditorPanel.vue")).default;
+    const editor = {
+      isEditable: true,
+      state: {
+        selection: {
+          from: 1,
+          to: 6,
+          empty: false,
+        },
+        doc: {
+          textBetween: vi.fn(() => "hello"),
+        },
+      },
+    };
+
+    const wrapper = mount(ScriptEditorPanel, {
+      props: {
+        modelValue: "<p>hello</p>",
+        isMarkupMode: true,
+        handlers: {},
+        toolbarItems: [],
+      },
+      global: {
+        stubs: {
+          UEditor: { template: "<div id='ueditor-stub'></div>" },
+          EditorToolbar: { template: "<div id='toolbar-stub'></div>" },
+          PhoneticSuggestionMenu: { template: "<div class='phonetic-menu'></div>" },
+        },
+      },
+    });
+
+    await (wrapper.vm as any).previewSelectedText(editor);
+    await nextTick();
+
+    expect(playPronunciationPreview).toHaveBeenCalledWith("hello");
+    expect(wrapper.text()).toContain("Preview failed.");
+  });
 });

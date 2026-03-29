@@ -29,7 +29,7 @@ const markupGuideAccordion = computed({
 });
 
 const markupGuideItems = [
-  { label: "Speech Markup Guide", icon: "i-heroicons-musical-note", value: "guide" },
+  { label: "Speech Markup Guide", icon: "i-heroicons-book-open", value: "guide" },
 ];
 
 const scriptEditor = useTemplateRef<{

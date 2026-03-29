@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { customHandlers, textToHtml, toolbarItems } from "./useEditorHandlers";
+import { customHandlers, hasSelectedText, textToHtml, toolbarItems } from "./useEditorHandlers";
 
 function itemKind(item: (typeof toolbarItems)[number][number]) {
   return (item as { kind: string }).kind;
@@ -68,6 +68,17 @@ describe("textToHtml", () => {
 });
 
 describe("customHandlers", () => {
+  it("detects whether the editor has non-empty selected text", () => {
+    const selected = createEditor({ text: "Word" });
+    expect(hasSelectedText(selected.editor)).toBe(true);
+
+    const whitespace = createEditor({ text: "   " });
+    expect(hasSelectedText(whitespace.editor)).toBe(false);
+
+    const empty = createEditor({ empty: true });
+    expect(hasSelectedText(empty.editor)).toBe(false);
+  });
+
   it("supports undo and redo only when the editor can perform them", () => {
     const { editor, undo, redo } = createEditor({ canUndo: true, canRedo: false });
 
@@ -91,7 +102,7 @@ describe("customHandlers", () => {
       { from: 2, to: 6 },
       { type: "text", text: "[Word](/:/)" },
     );
-    expect(pronunciation.setTextSelection).toHaveBeenCalledWith(9);
+    expect(pronunciation.setTextSelection).toHaveBeenCalledWith({ from: 10, to: 11 });
 
     const pause = createEditor({ text: "Pause", from: 3, to: 8 });
     customHandlers.break.execute(pause.editor);
@@ -116,6 +127,42 @@ describe("customHandlers", () => {
       { type: "text", text: "[Soft](-1)" },
     );
     expect(stressDown.setTextSelection).toHaveBeenCalledWith({ from: 9, to: 10 });
+  });
+
+  it("selects the pronunciation placeholder character after inserting markup", () => {
+    const pronunciation = createEditor({ text: "Word", from: 2, to: 6 });
+
+    customHandlers.pronunciation.execute(pronunciation.editor);
+
+    const insertCalls = pronunciation.insertContentAt.mock.calls as unknown as Array<
+      [unknown, { text: string }]
+    >;
+    const selectionCalls = pronunciation.setTextSelection.mock.calls as unknown as Array<
+      [{ from: number; to: number }]
+    >;
+    const insertCall = insertCalls[0];
+    const selectionCall = selectionCalls[0];
+
+    expect(insertCall).toBeDefined();
+    expect(selectionCall).toBeDefined();
+    if (!insertCall || !selectionCall) {
+      throw new Error(
+        "Expected pronunciation handler to insert markup and select the placeholder.",
+      );
+    }
+
+    const insertedMarkup = insertCall[1].text;
+    const selection = selectionCall[0];
+
+    expect(insertedMarkup).toBe("[Word](/:/)");
+    expect(selection).toEqual({ from: 10, to: 11 });
+
+    const selectionStartInInsertedMarkup =
+      selection.from - pronunciation.editor.state.selection.from;
+    const selectionEndInInsertedMarkup = selection.to - pronunciation.editor.state.selection.from;
+    expect(insertedMarkup.slice(selectionStartInInsertedMarkup, selectionEndInInsertedMarkup)).toBe(
+      ":",
+    );
   });
 
   it("blocks markup when the editor is read-only, empty, or already inside markup", () => {
@@ -151,7 +198,7 @@ describe("customHandlers", () => {
   it("exports the expected toolbar groups", () => {
     expect(toolbarItems).toHaveLength(4);
     expect(toolbarItems[0]?.map(itemKind)).toEqual(["undo", "redo"]);
-    expect(toolbarItems[1]?.[0] ? itemKind(toolbarItems[1][0]) : undefined).toBe("pronunciation");
+    expect(toolbarItems[1]?.map(itemKind)).toEqual(["playSelection", "pronunciation"]);
     expect(toolbarItems[2]?.[0] ? itemKind(toolbarItems[2][0]) : undefined).toBe("break");
     expect(toolbarItems[3]?.map(itemKind)).toEqual(["stressUp", "stressDown"]);
   });

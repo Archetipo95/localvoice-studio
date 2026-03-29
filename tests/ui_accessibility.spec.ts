@@ -90,3 +90,11 @@ test("keyboard users can apply markup and generate audio", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator("#output-audio")).toHaveAttribute("src", /^blob:/);
 });
+
+test("keyboard users can reach the pronunciation preview control", async ({ page }) => {
+  const button = page.getByRole("button", { name: "Play pronunciation for stewardship" });
+
+  await expect(button).toBeVisible();
+  await tabTo(page, button, 120);
+  await expect(button).toBeFocused();
+});

@@ -4,7 +4,7 @@
       <div
         class="flex items-center gap-1.5 text-xs font-semibold text-warning uppercase tracking-wide"
       >
-        <UIcon name="i-heroicons-musical-note" class="size-3.5 shrink-0" />
+        <UIcon name="i-heroicons-chat-bubble-oval-left" class="size-3.5 shrink-0" />
         Pronunciation
       </div>
       <p class="text-xs text-muted">Force a custom phonetic reading using IPA notation.</p>

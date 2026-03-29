@@ -1,4 +1,4 @@
-import type { EditorCustomHandlers, EditorToolbarItem } from "@nuxt/ui";
+import type { EditorCustomHandlers, EditorHandler, EditorToolbarItem } from "@nuxt/ui";
 import type { Editor } from "@tiptap/vue-3";
 import { getAllPhoneticChars, toPhoneticCharKind } from "../utils/phonetic-chars";
 
@@ -28,6 +28,10 @@ export function textToHtml(text: string): string {
 function selectionText(editor: Editor): string {
   const { from, to } = editor.state.selection;
   return editor.state.doc.textBetween(from, to);
+}
+
+export function hasSelectedText(editor: Editor): boolean {
+  return !editor.state.selection.empty && selectionText(editor).trim().length > 0;
 }
 
 const MARKUP_SCAN_LOOKBEHIND = 120;
@@ -60,7 +64,7 @@ function isSelectionInsideMarkup(editor: Editor, pattern: RegExp): boolean {
 
 function canApplyMarkup(editor: Editor): boolean {
   return (
-    !editor.state.selection.empty &&
+    hasSelectedText(editor) &&
     editor.isEditable &&
     !isSelectionInsideMarkup(editor, /\[[^\]]+\]\((?:\/[^)]*\/|break:\d+|[+-]\d+)\)/g)
   );
@@ -145,14 +149,15 @@ export const customHandlers = {
       const { from, to } = editor.state.selection;
       const selected = selectionText(editor);
       const markup = `[${selected}](/:/)`;
-      // Cursor lands inside the '/:/' pronunciation slot, at the '/' before ':'
-      // Offset from '(': 1 char ('/')
+      // Select the placeholder inside '/:/' so typing immediately replaces it.
       const parenOffset = from + selected.length + 2;
+      const selectionFrom = parenOffset + 2;
+      const selectionTo = selectionFrom + 1;
       return editor
         .chain()
         .focus()
         .insertContentAt({ from, to }, { type: "text", text: markup })
-        .setTextSelection(parenOffset + 1);
+        .setTextSelection({ from: selectionFrom, to: selectionTo });
     },
     isActive: canApplyMarkup,
     isDisabled: (editor: Editor) => !canApplyMarkup(editor),
@@ -178,17 +183,27 @@ export const customHandlers = {
   ...generatePhoneticHandlers(),
 } satisfies EditorCustomHandlers;
 
+export type ScriptEditorToolbarHandlers = typeof customHandlers & {
+  playSelection: EditorHandler;
+};
+
 // ── Toolbar items ──────────────────────────────────────────────────────────
 
-export const toolbarItems: EditorToolbarItem<typeof customHandlers>[][] = [
+export const toolbarItems: EditorToolbarItem<ScriptEditorToolbarHandlers>[][] = [
   [
     { kind: "undo", icon: "i-heroicons-arrow-uturn-left", tooltip: { text: "Undo" } },
     { kind: "redo", icon: "i-heroicons-arrow-uturn-right", tooltip: { text: "Redo" } },
   ],
   [
     {
+      kind: "playSelection",
+      icon: "i-heroicons-speaker-wave",
+      tooltip: { text: "Play selected word" },
+      "aria-label": "Play selected word",
+    },
+    {
       kind: "pronunciation",
-      icon: "i-heroicons-musical-note",
+      icon: "i-heroicons-chat-bubble-oval-left",
       tooltip: { text: "Add pronunciation" },
     },
   ],

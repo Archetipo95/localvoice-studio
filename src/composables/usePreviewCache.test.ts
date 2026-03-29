@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildMixPreviewId,
+  buildPronunciationPreviewId,
   buildVoicePreviewId,
   clearPreviewCache,
   deletePreviewCacheStorage,
@@ -93,6 +94,23 @@ describe("usePreviewCache", () => {
         paragraphPauseMs: 300,
       }),
     ).toBe("mix:af_heart|bf_emma|35|speed:1.25|pitch:1.5|sentence:120|newline:180|paragraph:300");
+
+    expect(
+      buildPronunciationPreviewId({
+        modelId: "demo/model",
+        markup: "[stewardship](/stjuːɚdʃɪp/)",
+        voice: "af_heart",
+        secondaryVoice: "__none__",
+        secondaryRatio: 0,
+        speed: 1,
+        pitchSemitones: 0,
+        sentencePauseMs: 120,
+        newlinePauseMs: 180,
+        paragraphPauseMs: 300,
+      }),
+    ).toBe(
+      "pronunciation:demo/model|[stewardship](/stjuːɚdʃɪp/)|af_heart|__none__|0|speed:1.00|pitch:0.0|sentence:120|newline:180|paragraph:300",
+    );
   });
 
   it("loads cached previews, reuses in-memory ones, and handles misses or failures", async () => {

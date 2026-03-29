@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyStressLevel,
+  findPronunciationMarkupTokens,
   hasSpeechMarkup,
   parseSpeechMarkup,
   stripSpeechMarkup,
@@ -69,5 +70,21 @@ describe("speech markup helpers", () => {
     expect(applyStressLevel("rhythm", 1)).toBe("rhˈythm");
     expect(applyStressLevel("tsk", 1)).toBe("ˈtsk");
     expect(applyStressLevel("", 1)).toBe("");
+  });
+
+  it("finds only pronunciation markup tokens with source positions", () => {
+    expect(
+      findPronunciationMarkupTokens(
+        "Use [stewardship](/stjuːɚdʃɪp/) but not [pause here](break:500) or [better](+1).",
+      ),
+    ).toEqual([
+      {
+        label: "stewardship",
+        phonemes: "stjuːɚdʃɪp",
+        markup: "[stewardship](/stjuːɚdʃɪp/)",
+        from: 4,
+        to: 31,
+      },
+    ]);
   });
 });

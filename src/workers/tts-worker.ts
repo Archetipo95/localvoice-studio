@@ -13,6 +13,7 @@ import { sortVoicesByGrade } from "../utils/voices";
 import type {
   GenerateRequest,
   GeneratePreviewRequest,
+  GeneratePronunciationPreviewRequest,
   InitRequest,
   ModelDefinition,
   RuntimeDevice,
@@ -56,6 +57,11 @@ self.addEventListener("message", async (event: MessageEvent<WorkerMessage>) => {
 
   if (message.type === "generate-preview") {
     await handleGeneratePreview(message);
+    return;
+  }
+
+  if (message.type === "generate-pronunciation-preview") {
+    await handleGeneratePronunciationPreview(message);
     return;
   }
 
@@ -199,6 +205,66 @@ async function handleGeneratePreview(message: GeneratePreviewRequest): Promise<v
       type: "error",
       message: getErrorMessage(error, "Voice sample generation failed."),
       recoverable: true,
+    });
+  }
+}
+
+async function handleGeneratePronunciationPreview(
+  message: GeneratePronunciationPreviewRequest,
+): Promise<void> {
+  if (mockConfig?.enabled) {
+    await generateMockPronunciationPreview(message);
+    return;
+  }
+
+  if (!currentTts || !activeDevice) {
+    post({
+      type: "pronunciation-preview-error",
+      previewId: message.previewId,
+      message: "Model is still loading. Please wait and try again.",
+    });
+    return;
+  }
+
+  const tts = currentTts;
+
+  try {
+    const generated = await runSynthesisTask(async () =>
+      generateAudio(
+        tts,
+        {
+          type: "generate",
+          text: message.text,
+          voice: message.voice,
+          secondaryVoice: message.secondaryVoice ?? NO_BLEND_VOICE,
+          secondaryRatio: message.secondaryRatio ?? 0,
+          speed: message.speed,
+          pitchSemitones: message.pitchSemitones,
+          sentencePauseMs: message.sentencePauseMs,
+          newlinePauseMs: message.newlinePauseMs,
+          paragraphPauseMs: message.paragraphPauseMs,
+          fileName: "pronunciation-preview.wav",
+        },
+        currentRunToken,
+      ),
+    );
+
+    const transferable = toTransferableBuffer(generated.audio);
+    post(
+      {
+        type: "pronunciation-preview-result",
+        previewId: message.previewId,
+        audioBuffer: transferable,
+        sampleRate: generated.sampling_rate,
+        mimeType: "audio/wav",
+      },
+      [transferable],
+    );
+  } catch (error) {
+    post({
+      type: "pronunciation-preview-error",
+      previewId: message.previewId,
+      message: getErrorMessage(error, "Pronunciation preview failed."),
     });
   }
 }
@@ -365,6 +431,46 @@ async function generateMockPreview(message: GeneratePreviewRequest): Promise<voi
   post(
     {
       type: "preview-result",
+      previewId: message.previewId,
+      audioBuffer: transferable,
+      sampleRate,
+      mimeType: "audio/wav",
+    },
+    [transferable],
+  );
+}
+
+async function generateMockPronunciationPreview(
+  message: GeneratePronunciationPreviewRequest,
+): Promise<void> {
+  await wait(75);
+
+  const sampleRate = 24000;
+  const durationSeconds = 0.9;
+  const totalSamples = Math.floor(sampleRate * durationSeconds);
+  const samples = new Float32Array(totalSamples);
+  const secondaryVoice =
+    message.secondaryVoice && message.secondaryVoice !== NO_BLEND_VOICE
+      ? message.secondaryVoice
+      : "";
+  const seed = Array.from(
+    `${message.text}|${message.voice}|${secondaryVoice}|${message.secondaryRatio ?? 0}`,
+  ).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const baseFrequency = (260 + (seed % 120)) * 2 ** ((message.pitchSemitones ?? 0) / 12);
+
+  for (let index = 0; index < samples.length; index += 1) {
+    const time = index / sampleRate;
+    samples[index] =
+      0.18 *
+      Math.sin(2 * Math.PI * baseFrequency * time) *
+      Math.exp(-time / 1.2) *
+      (0.82 + 0.18 * Math.sin(2 * Math.PI * 7 * time));
+  }
+
+  const transferable = toTransferableBuffer(samples);
+  post(
+    {
+      type: "pronunciation-preview-result",
       previewId: message.previewId,
       audioBuffer: transferable,
       sampleRate,
