@@ -95,6 +95,21 @@ export function buildMixPreviewId(options: {
   return `mix:${options.voice}|${options.secondaryVoice}|${options.secondaryRatio}|${formatPreviewTuningKey(options)}`;
 }
 
+export function buildPronunciationPreviewId(options: {
+  modelId: string;
+  markup: string;
+  voice: string;
+  secondaryVoice: string;
+  secondaryRatio: number;
+  speed: number;
+  pitchSemitones: number;
+  sentencePauseMs: number;
+  newlinePauseMs: number;
+  paragraphPauseMs: number;
+}) {
+  return `pronunciation:${options.modelId}|${options.markup}|${options.voice}|${options.secondaryVoice}|${options.secondaryRatio}|${formatPreviewTuningKey(options)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Cache persistence
 // ---------------------------------------------------------------------------

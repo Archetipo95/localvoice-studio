@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { useTemplateRef, watch } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 import type { Editor } from "@tiptap/vue-3";
 import type { EditorCustomHandlers, EditorSuggestionMenuItem, EditorToolbarItem } from "@nuxt/ui";
 import { getPhoneticCharGroups } from "../utils/phonetic-chars";
+import { playPronunciationPreview } from "../composables/useTtsWorker";
+import { createPronunciationPreviewExtension } from "../utils/pronunciation-preview-extension";
 import PhoneticSuggestionMenu from "./PhoneticSuggestionMenu.vue";
 import EditorToolbar from "./EditorToolbar.vue";
 
@@ -21,6 +23,23 @@ const emit = defineEmits<{
 const editorRef = useTemplateRef<{ editor: Editor | undefined }>("editorRef");
 const phoneticMenuItems = getPhoneticCharGroups() satisfies EditorSuggestionMenuItem[][];
 const appendToBody = typeof document !== "undefined" ? () => document.body : undefined;
+const pronunciationPreviewError = ref<string | null>(null);
+
+const editorExtensions = computed(() => [
+  createPronunciationPreviewExtension({
+    onPlay: async (markup: string, label: string) => {
+      pronunciationPreviewError.value = null;
+      try {
+        await playPronunciationPreview(markup);
+      } catch (error) {
+        pronunciationPreviewError.value =
+          error instanceof Error && error.message
+            ? error.message
+            : `Could not preview pronunciation for ${label}.`;
+      }
+    },
+  }),
+]);
 
 watch(
   () => props.modelValue,
@@ -41,6 +60,9 @@ watch(
     const editor = editorRef.value?.editor;
     if (!editor?.setEditable) return;
     editor.setEditable(isMarkupMode);
+    if (!isMarkupMode) {
+      pronunciationPreviewError.value = null;
+    }
     if (!isMarkupMode && editor.isFocused) {
       editor.commands.blur();
     }
@@ -99,6 +121,7 @@ defineExpose({
     }"
     :image="false"
     :mention="false"
+    :extensions="isMarkupMode ? editorExtensions : []"
     :placeholder="{ placeholder: 'Type something to generate speech...', mode: 'firstLine' }"
     class="flex min-h-72 w-full max-h-[72vh] flex-col overflow-hidden font-mono ring ring-muted rounded-lg bg-default/80"
     :ui="{
@@ -133,4 +156,13 @@ defineExpose({
       size="md"
     />
   </UEditor>
+
+  <p
+    v-if="pronunciationPreviewError"
+    class="mt-2 text-xs text-error"
+    aria-live="polite"
+    data-pronunciation-preview-error
+  >
+    {{ pronunciationPreviewError }}
+  </p>
 </template>

@@ -4,6 +4,7 @@ import type {
   InitRequest,
   WorkerResponse,
   GeneratePreviewRequest,
+  GeneratePronunciationPreviewRequest,
 } from "../types";
 import { useGenerationStore } from "../stores/generation";
 import { useVoiceStore } from "../stores/voice";
@@ -14,6 +15,8 @@ import {
   loadPreviewFromCache,
   buildVoicePreviewId,
   buildMixPreviewId,
+  buildPronunciationPreviewId,
+  previewAudioUrls,
   clearPreviewCache,
   deletePreviewCacheStorage,
   revokeBlobUrl,
@@ -63,6 +66,14 @@ interface PreviewBatch {
 
 let activeBatch: PreviewBatch | null = null;
 const previewOutputAliases = new Map<string, string>();
+const pendingPronunciationPreviewRequests = new Map<
+  string,
+  {
+    resolve: (url: string) => void;
+    reject: (error: Error) => void;
+  }
+>();
+let pronunciationPreviewAudio: HTMLAudioElement | null = null;
 
 function startElapsedTimer() {
   generationStartAt.value = Date.now();
@@ -94,6 +105,11 @@ function stopElapsedTimer() {
 function resetTransientOutputState() {
   const gen = useGenerationStore();
 
+  for (const pending of pendingPronunciationPreviewRequests.values()) {
+    pending.reject(new Error("Pronunciation preview canceled."));
+  }
+  pendingPronunciationPreviewRequests.clear();
+  stopPronunciationAudio();
   gen.clearAudio();
   clearPreviewCache();
   activePreviewId.value = null;
@@ -196,6 +212,23 @@ function handleWorkerMessage(message: WorkerResponse, initMessage: InitRequest) 
       );
       previewOutputAliases.delete(message.previewId);
       completePreview(message.previewId, gen);
+      break;
+    }
+
+    case "pronunciation-preview-result": {
+      const blob = audioBufferToWavBlob(message.audioBuffer, message.sampleRate, message.mimeType);
+      const url = URL.createObjectURL(blob);
+      storePreviewResult(message.previewId, message.mimeType, blob, url);
+      pendingPronunciationPreviewRequests.get(message.previewId)?.resolve(url);
+      pendingPronunciationPreviewRequests.delete(message.previewId);
+      break;
+    }
+
+    case "pronunciation-preview-error": {
+      pendingPronunciationPreviewRequests
+        .get(message.previewId)
+        ?.reject(new Error(message.message || "Pronunciation preview failed."));
+      pendingPronunciationPreviewRequests.delete(message.previewId);
       break;
     }
 
@@ -405,6 +438,113 @@ export function requestPreviews() {
   }
 }
 
+function stopPronunciationAudio() {
+  if (!pronunciationPreviewAudio) return;
+  pronunciationPreviewAudio.pause();
+  pronunciationPreviewAudio.currentTime = 0;
+}
+
+function pauseDocumentAudio() {
+  document.querySelectorAll("audio").forEach((audio) => {
+    if (!audio.paused) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  });
+}
+
+function buildPronunciationRequest(options: {
+  markup: string;
+  voice: string;
+  secondaryVoice: string;
+  secondaryRatio: number;
+  speed: number;
+  pitchSemitones: number;
+  sentencePauseMs: number;
+  newlinePauseMs: number;
+  paragraphPauseMs: number;
+}): GeneratePronunciationPreviewRequest {
+  const gen = useGenerationStore();
+
+  return {
+    type: "generate-pronunciation-preview",
+    previewId: buildPronunciationPreviewId({
+      modelId: gen.model.modelId,
+      markup: options.markup,
+      voice: options.voice,
+      secondaryVoice: options.secondaryVoice,
+      secondaryRatio: options.secondaryRatio,
+      speed: options.speed,
+      pitchSemitones: options.pitchSemitones,
+      sentencePauseMs: options.sentencePauseMs,
+      newlinePauseMs: options.newlinePauseMs,
+      paragraphPauseMs: options.paragraphPauseMs,
+    }),
+    text: options.markup,
+    voice: options.voice,
+    secondaryVoice: options.secondaryVoice,
+    secondaryRatio: options.secondaryRatio,
+    speed: options.speed,
+    pitchSemitones: options.pitchSemitones,
+    sentencePauseMs: options.sentencePauseMs,
+    newlinePauseMs: options.newlinePauseMs,
+    paragraphPauseMs: options.paragraphPauseMs,
+  };
+}
+
+export function buildCurrentPronunciationPreviewRequest(markup: string) {
+  const voice = useVoiceStore();
+
+  return buildPronunciationRequest({
+    markup,
+    voice: voice.selectedVoice,
+    secondaryVoice: voice.secondaryVoice,
+    secondaryRatio: voice.secondaryRatio,
+    speed: voice.speed,
+    pitchSemitones: voice.pitchSemitones,
+    sentencePauseMs: voice.pauses.sentence.value,
+    newlinePauseMs: voice.pauses.newline.value,
+    paragraphPauseMs: voice.pauses.paragraph.value,
+  });
+}
+
+export async function requestPronunciationPreview(markup: string): Promise<string> {
+  const request = buildCurrentPronunciationPreviewRequest(markup);
+
+  if (await loadPreviewFromCache(request.previewId)) {
+    return previewAudioUrls.value.get(request.previewId) ?? "";
+  }
+
+  if (!worker.value) {
+    throw new Error("Model worker is not ready.");
+  }
+
+  return await new Promise<string>((resolve, reject) => {
+    pendingPronunciationPreviewRequests.set(request.previewId, { resolve, reject });
+    worker.value?.postMessage(request);
+  });
+}
+
+export async function playPronunciationPreview(markup: string): Promise<string> {
+  const url = await requestPronunciationPreview(markup);
+  if (!url) {
+    throw new Error("Pronunciation preview is unavailable.");
+  }
+
+  pauseDocumentAudio();
+  stopPronunciationAudio();
+
+  if (!pronunciationPreviewAudio) {
+    pronunciationPreviewAudio = new Audio();
+  }
+
+  pronunciationPreviewAudio.src = url;
+  pronunciationPreviewAudio.currentTime = 0;
+  await pronunciationPreviewAudio.play();
+
+  return url;
+}
+
 function completePreview(previewId: string, generation: ReturnType<typeof useGenerationStore>) {
   if (!activeBatch) return;
 
@@ -458,6 +598,7 @@ export function setupWorkerWatchers() {
     () => gen.model.modelId,
     (next, previous) => {
       if (previous && previous !== next) {
+        stopPronunciationAudio();
         resetTransientOutputState();
         void deletePreviewCacheStorage();
       }

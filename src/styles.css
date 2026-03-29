@@ -15,3 +15,29 @@ button {
   max-height: none;
   overflow: visible;
 }
+
+.tiptap .pronunciation-preview-trigger {
+  display: inline-flex;
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.tiptap .pronunciation-preview-trigger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--ui-border) 70%, transparent);
+  background: color-mix(in oklab, var(--ui-bg-elevated) 92%, transparent);
+  color: var(--ui-text-highlighted);
+}
+
+.tiptap .pronunciation-preview-trigger-button:hover,
+.tiptap .pronunciation-preview-trigger-button:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklab, var(--ui-primary) 50%, transparent);
+  background: color-mix(in oklab, var(--ui-bg-elevated) 70%, var(--ui-primary) 12%);
+}

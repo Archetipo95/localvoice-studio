@@ -224,3 +224,15 @@ test("placeholder hidden when text is entered", async ({ page }) => {
     await expect(editor.locator("[data-placeholder]")).toHaveCount(0);
   }
 });
+
+test("pronunciation tokens show a speaker button and play a preview", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  const token = page.locator("[data-pronunciation-markup*='stewardship']").first();
+  const button = page.getByRole("button", { name: "Play pronunciation for stewardship" });
+
+  await expect(button).toBeVisible();
+  await token.hover();
+  await button.click();
+  await expect(page.locator("#output-audio")).toHaveCount(0);
+});

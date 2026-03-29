@@ -56,12 +56,19 @@ export interface PersistedGenerationHistoryItem {
   cacheKey: string;
 }
 
-export type WorkerMessage = InitRequest | GenerateRequest | GeneratePreviewRequest | CancelRequest;
+export type WorkerMessage =
+  | InitRequest
+  | GenerateRequest
+  | GeneratePreviewRequest
+  | GeneratePronunciationPreviewRequest
+  | CancelRequest;
 
 export type WorkerResponse =
   | ReadyResponse
   | ResultMessage
   | PreviewResultMessage
+  | PronunciationPreviewResultMessage
+  | PronunciationPreviewErrorMessage
   | WorkerErrorMessage
   | InitProgressResponse;
 
@@ -102,6 +109,20 @@ export interface GeneratePreviewRequest {
   paragraphPauseMs: number;
 }
 
+export interface GeneratePronunciationPreviewRequest {
+  type: "generate-pronunciation-preview";
+  previewId: string;
+  text: string;
+  voice: string;
+  secondaryVoice?: string;
+  secondaryRatio?: number;
+  speed: number;
+  pitchSemitones: number;
+  sentencePauseMs: number;
+  newlinePauseMs: number;
+  paragraphPauseMs: number;
+}
+
 export interface CancelRequest {
   type: "cancel";
 }
@@ -132,6 +153,20 @@ export interface PreviewResultMessage {
   audioBuffer: ArrayBuffer;
   sampleRate: number;
   mimeType: AudioMimeType;
+}
+
+export interface PronunciationPreviewResultMessage {
+  type: "pronunciation-preview-result";
+  previewId: string;
+  audioBuffer: ArrayBuffer;
+  sampleRate: number;
+  mimeType: AudioMimeType;
+}
+
+export interface PronunciationPreviewErrorMessage {
+  type: "pronunciation-preview-error";
+  previewId: string;
+  message: string;
 }
 
 export interface WorkerErrorMessage {

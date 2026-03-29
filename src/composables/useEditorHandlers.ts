@@ -145,14 +145,15 @@ export const customHandlers = {
       const { from, to } = editor.state.selection;
       const selected = selectionText(editor);
       const markup = `[${selected}](/:/)`;
-      // Cursor lands inside the '/:/' pronunciation slot, at the '/' before ':'
-      // Offset from '(': 1 char ('/')
+      // Select the placeholder inside '/:/' so typing immediately replaces it.
       const parenOffset = from + selected.length + 2;
+      const selectionFrom = parenOffset + 2;
+      const selectionTo = selectionFrom + 1;
       return editor
         .chain()
         .focus()
         .insertContentAt({ from, to }, { type: "text", text: markup })
-        .setTextSelection(parenOffset + 1);
+        .setTextSelection({ from: selectionFrom, to: selectionTo });
     },
     isActive: canApplyMarkup,
     isDisabled: (editor: Editor) => !canApplyMarkup(editor),
@@ -188,7 +189,7 @@ export const toolbarItems: EditorToolbarItem<typeof customHandlers>[][] = [
   [
     {
       kind: "pronunciation",
-      icon: "i-heroicons-musical-note",
+      icon: "i-heroicons-chat-bubble-oval-left",
       tooltip: { text: "Add pronunciation" },
     },
   ],

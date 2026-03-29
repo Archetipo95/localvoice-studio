@@ -91,7 +91,7 @@ describe("customHandlers", () => {
       { from: 2, to: 6 },
       { type: "text", text: "[Word](/:/)" },
     );
-    expect(pronunciation.setTextSelection).toHaveBeenCalledWith(9);
+    expect(pronunciation.setTextSelection).toHaveBeenCalledWith({ from: 10, to: 11 });
 
     const pause = createEditor({ text: "Pause", from: 3, to: 8 });
     customHandlers.break.execute(pause.editor);

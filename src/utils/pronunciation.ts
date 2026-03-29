@@ -5,7 +5,16 @@ export type SpeechMarkupSegment =
   | { type: "break"; value: string; label: string; pauseMs: number };
 
 const SPEECH_MARKUP_PATTERN = /\[([^\]]+)\]\((\/[^)]+\/|[+-][12]|break:\d+)\)/g;
+const PRONUNCIATION_MARKUP_PATTERN = /\[([^\]]+)\]\((\/[^)]+\/)\)/g;
 const VOWEL_OR_STRESSABLE_PATTERN = /[aəeɛɪiɔoʊuʌæɑɚɝɒœøyɨɐɜɞɯʉʏɶ]/i;
+
+export interface PronunciationMarkupToken {
+  label: string;
+  phonemes: string;
+  markup: string;
+  from: number;
+  to: number;
+}
 
 export function parseSpeechMarkup(text: string): SpeechMarkupSegment[] {
   SPEECH_MARKUP_PATTERN.lastIndex = 0;
@@ -62,6 +71,25 @@ export function parseSpeechMarkup(text: string): SpeechMarkupSegment[] {
 export function hasSpeechMarkup(text: string): boolean {
   SPEECH_MARKUP_PATTERN.lastIndex = 0;
   return SPEECH_MARKUP_PATTERN.test(text);
+}
+
+export function findPronunciationMarkupTokens(text: string): PronunciationMarkupToken[] {
+  PRONUNCIATION_MARKUP_PATTERN.lastIndex = 0;
+
+  return [...text.matchAll(PRONUNCIATION_MARKUP_PATTERN)].map((match) => {
+    const markup = match[0] ?? "";
+    const label = match[1] ?? "";
+    const phonemeAnnotation = match[2] ?? "";
+    const from = match.index ?? 0;
+
+    return {
+      label,
+      phonemes: phonemeAnnotation.slice(1, -1).trim(),
+      markup,
+      from,
+      to: from + markup.length,
+    };
+  });
 }
 
 export function stripSpeechMarkup(text: string): string {
