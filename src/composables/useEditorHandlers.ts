@@ -30,6 +30,10 @@ function selectionText(editor: Editor): string {
   return editor.state.doc.textBetween(from, to);
 }
 
+export function hasSelectedText(editor: Editor): boolean {
+  return !editor.state.selection.empty && selectionText(editor).trim().length > 0;
+}
+
 const MARKUP_SCAN_LOOKBEHIND = 120;
 const MARKUP_SCAN_LOOKAHEAD = 40;
 
@@ -60,7 +64,7 @@ function isSelectionInsideMarkup(editor: Editor, pattern: RegExp): boolean {
 
 function canApplyMarkup(editor: Editor): boolean {
   return (
-    !editor.state.selection.empty &&
+    hasSelectedText(editor) &&
     editor.isEditable &&
     !isSelectionInsideMarkup(editor, /\[[^\]]+\]\((?:\/[^)]*\/|break:\d+|[+-]\d+)\)/g)
   );
@@ -181,12 +185,18 @@ export const customHandlers = {
 
 // ── Toolbar items ──────────────────────────────────────────────────────────
 
-export const toolbarItems: EditorToolbarItem<typeof customHandlers>[][] = [
+export const toolbarItems: EditorToolbarItem<any>[][] = [
   [
     { kind: "undo", icon: "i-heroicons-arrow-uturn-left", tooltip: { text: "Undo" } },
     { kind: "redo", icon: "i-heroicons-arrow-uturn-right", tooltip: { text: "Redo" } },
   ],
   [
+    {
+      kind: "playSelection",
+      icon: "i-heroicons-speaker-wave",
+      tooltip: { text: "Play selected word" },
+      "aria-label": "Play selected word",
+    },
     {
       kind: "pronunciation",
       icon: "i-heroicons-chat-bubble-oval-left",

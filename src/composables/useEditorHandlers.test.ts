@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { customHandlers, textToHtml, toolbarItems } from "./useEditorHandlers";
+import { customHandlers, hasSelectedText, textToHtml, toolbarItems } from "./useEditorHandlers";
 
 function itemKind(item: (typeof toolbarItems)[number][number]) {
   return (item as { kind: string }).kind;
@@ -68,6 +68,17 @@ describe("textToHtml", () => {
 });
 
 describe("customHandlers", () => {
+  it("detects whether the editor has non-empty selected text", () => {
+    const selected = createEditor({ text: "Word" });
+    expect(hasSelectedText(selected.editor)).toBe(true);
+
+    const whitespace = createEditor({ text: "   " });
+    expect(hasSelectedText(whitespace.editor)).toBe(false);
+
+    const empty = createEditor({ empty: true });
+    expect(hasSelectedText(empty.editor)).toBe(false);
+  });
+
   it("supports undo and redo only when the editor can perform them", () => {
     const { editor, undo, redo } = createEditor({ canUndo: true, canRedo: false });
 
@@ -151,7 +162,7 @@ describe("customHandlers", () => {
   it("exports the expected toolbar groups", () => {
     expect(toolbarItems).toHaveLength(4);
     expect(toolbarItems[0]?.map(itemKind)).toEqual(["undo", "redo"]);
-    expect(toolbarItems[1]?.[0] ? itemKind(toolbarItems[1][0]) : undefined).toBe("pronunciation");
+    expect(toolbarItems[1]?.map(itemKind)).toEqual(["playSelection", "pronunciation"]);
     expect(toolbarItems[2]?.[0] ? itemKind(toolbarItems[2][0]) : undefined).toBe("break");
     expect(toolbarItems[3]?.map(itemKind)).toEqual(["stressUp", "stressDown"]);
   });

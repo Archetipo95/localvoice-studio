@@ -4,6 +4,7 @@ import type { Editor } from "@tiptap/vue-3";
 import type { EditorCustomHandlers, EditorSuggestionMenuItem, EditorToolbarItem } from "@nuxt/ui";
 import { getPhoneticCharGroups } from "../utils/phonetic-chars";
 import { playPronunciationPreview } from "../composables/useTtsWorker";
+import { hasSelectedText } from "../composables/useEditorHandlers";
 import { createPronunciationPreviewExtension } from "../utils/pronunciation-preview-extension";
 import PhoneticSuggestionMenu from "./PhoneticSuggestionMenu.vue";
 import EditorToolbar from "./EditorToolbar.vue";
@@ -24,6 +25,33 @@ const editorRef = useTemplateRef<{ editor: Editor | undefined }>("editorRef");
 const phoneticMenuItems = getPhoneticCharGroups() satisfies EditorSuggestionMenuItem[][];
 const appendToBody = typeof document !== "undefined" ? () => document.body : undefined;
 const pronunciationPreviewError = ref<string | null>(null);
+
+async function previewSelectedText(editor: Editor) {
+  const { from, to } = editor.state.selection;
+  const selectedText = editor.state.doc.textBetween(from, to).trim();
+  if (!selectedText) return;
+
+  pronunciationPreviewError.value = null;
+
+  try {
+    await playPronunciationPreview(selectedText);
+  } catch (error) {
+    pronunciationPreviewError.value =
+      error instanceof Error && error.message
+        ? error.message
+        : `Could not preview pronunciation for ${selectedText}.`;
+  }
+}
+
+const mergedHandlers = computed<EditorCustomHandlers>(() => ({
+  ...props.handlers,
+  playSelection: {
+    canExecute: (editor: Editor) => editor.isEditable && hasSelectedText(editor),
+    execute: previewSelectedText,
+    isActive: (editor: Editor) => editor.isEditable && hasSelectedText(editor),
+    isDisabled: (editor: Editor) => !editor.isEditable || !hasSelectedText(editor),
+  },
+}));
 
 const editorExtensions = computed(() => [
   createPronunciationPreviewExtension({
@@ -92,6 +120,7 @@ function clearEditorText() {
 defineExpose({
   getEditorText,
   clearEditorText,
+  previewSelectedText,
 });
 </script>
 
@@ -110,7 +139,7 @@ defineExpose({
     :model-value="modelValue"
     content-type="html"
     :editable="isMarkupMode"
-    :handlers="handlers"
+    :handlers="mergedHandlers"
     :starter-kit="{
       blockquote: false,
       codeBlock: false,
