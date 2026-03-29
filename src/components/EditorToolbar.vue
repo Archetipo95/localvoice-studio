@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Editor } from "@tiptap/vue-3";
 import type { EditorToolbarItem } from "@nuxt/ui";
+import type { ScriptEditorToolbarHandlers } from "../composables/useEditorHandlers";
 
 defineProps<{
   editor: Editor | undefined;
-  items: EditorToolbarItem<any>[][];
+  items: EditorToolbarItem<ScriptEditorToolbarHandlers>[][];
   isMarkupMode: boolean;
 }>();
 

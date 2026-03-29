@@ -73,7 +73,7 @@ export function createPronunciationPreviewExtension(options: {
                 for (const token of tokens) {
                   const from = offsetToDocPosition(slices, token.from);
                   const to = offsetToDocPosition(slices, token.to);
-                  if (!from || !to || to <= from) continue;
+                  if (from == null || to == null || to <= from) continue;
 
                   decorations.push(
                     Decoration.inline(from, to, {

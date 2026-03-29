@@ -129,6 +129,42 @@ describe("customHandlers", () => {
     expect(stressDown.setTextSelection).toHaveBeenCalledWith({ from: 9, to: 10 });
   });
 
+  it("selects the pronunciation placeholder character after inserting markup", () => {
+    const pronunciation = createEditor({ text: "Word", from: 2, to: 6 });
+
+    customHandlers.pronunciation.execute(pronunciation.editor);
+
+    const insertCalls = pronunciation.insertContentAt.mock.calls as unknown as Array<
+      [unknown, { text: string }]
+    >;
+    const selectionCalls = pronunciation.setTextSelection.mock.calls as unknown as Array<
+      [{ from: number; to: number }]
+    >;
+    const insertCall = insertCalls[0];
+    const selectionCall = selectionCalls[0];
+
+    expect(insertCall).toBeDefined();
+    expect(selectionCall).toBeDefined();
+    if (!insertCall || !selectionCall) {
+      throw new Error(
+        "Expected pronunciation handler to insert markup and select the placeholder.",
+      );
+    }
+
+    const insertedMarkup = insertCall[1].text;
+    const selection = selectionCall[0];
+
+    expect(insertedMarkup).toBe("[Word](/:/)");
+    expect(selection).toEqual({ from: 10, to: 11 });
+
+    const selectionStartInInsertedMarkup =
+      selection.from - pronunciation.editor.state.selection.from;
+    const selectionEndInInsertedMarkup = selection.to - pronunciation.editor.state.selection.from;
+    expect(insertedMarkup.slice(selectionStartInInsertedMarkup, selectionEndInInsertedMarkup)).toBe(
+      ":",
+    );
+  });
+
   it("blocks markup when the editor is read-only, empty, or already inside markup", () => {
     const readOnly = createEditor({ editable: false });
     expect(customHandlers.pronunciation.canExecute(readOnly.editor)).toBe(false);

@@ -580,6 +580,7 @@ describe("useTtsWorker", () => {
 
   it("requests, caches, and plays pronunciation previews without mutating main output", async () => {
     const workerInstances: MockWorker[] = [];
+    const audioInstances: AudioMock[] = [];
     const storePreviewResult = vi.fn();
     const loadPreviewFromCache = vi
       .fn(async (_previewId: string) => false)
@@ -613,6 +614,9 @@ describe("useTtsWorker", () => {
       src = "";
       currentTime = 0;
       paused = true;
+      constructor() {
+        audioInstances.push(this);
+      }
       play = vi.fn(async () => {
         this.paused = false;
       });
@@ -710,6 +714,10 @@ describe("useTtsWorker", () => {
     expect(storePreviewResult).toHaveBeenCalled();
     expect(createObjectURL).toHaveBeenCalled();
     expect(generation.audioUrl).toBe("blob:main-output");
+    expect(audioInstances).toHaveLength(1);
+    expect(audioInstances[0]?.src).toBe("blob:pronunciation");
+    expect(audioInstances[0]?.currentTime).toBe(0);
+    expect(audioInstances[0]?.play).toHaveBeenCalledTimes(1);
 
     await expect(mod.requestPronunciationPreview("[stewardship](/stjuːɚdʃɪp/)")).resolves.toBe(
       "blob:cached",

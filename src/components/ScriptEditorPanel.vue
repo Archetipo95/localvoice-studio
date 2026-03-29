@@ -5,6 +5,7 @@ import type { EditorCustomHandlers, EditorSuggestionMenuItem, EditorToolbarItem 
 import { getPhoneticCharGroups } from "../utils/phonetic-chars";
 import { playPronunciationPreview } from "../composables/useTtsWorker";
 import { hasSelectedText } from "../composables/useEditorHandlers";
+import type { ScriptEditorToolbarHandlers } from "../composables/useEditorHandlers";
 import { createPronunciationPreviewExtension } from "../utils/pronunciation-preview-extension";
 import PhoneticSuggestionMenu from "./PhoneticSuggestionMenu.vue";
 import EditorToolbar from "./EditorToolbar.vue";
@@ -13,7 +14,7 @@ const props = defineProps<{
   modelValue: string;
   isMarkupMode: boolean;
   handlers: EditorCustomHandlers;
-  toolbarItems: EditorToolbarItem<any>[][];
+  toolbarItems: EditorToolbarItem<ScriptEditorToolbarHandlers>[][];
 }>();
 
 const emit = defineEmits<{

@@ -1,4 +1,4 @@
-import type { EditorCustomHandlers, EditorToolbarItem } from "@nuxt/ui";
+import type { EditorCustomHandlers, EditorHandler, EditorToolbarItem } from "@nuxt/ui";
 import type { Editor } from "@tiptap/vue-3";
 import { getAllPhoneticChars, toPhoneticCharKind } from "../utils/phonetic-chars";
 
@@ -183,9 +183,13 @@ export const customHandlers = {
   ...generatePhoneticHandlers(),
 } satisfies EditorCustomHandlers;
 
+export type ScriptEditorToolbarHandlers = typeof customHandlers & {
+  playSelection: EditorHandler;
+};
+
 // ── Toolbar items ──────────────────────────────────────────────────────────
 
-export const toolbarItems: EditorToolbarItem<any>[][] = [
+export const toolbarItems: EditorToolbarItem<ScriptEditorToolbarHandlers>[][] = [
   [
     { kind: "undo", icon: "i-heroicons-arrow-uturn-left", tooltip: { text: "Undo" } },
     { kind: "redo", icon: "i-heroicons-arrow-uturn-right", tooltip: { text: "Redo" } },
