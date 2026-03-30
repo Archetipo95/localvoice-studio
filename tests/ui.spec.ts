@@ -90,6 +90,22 @@ test("generation produces playable output and a download link", async ({ page })
   await expect(download).toHaveAttribute("download", /^localvoice-.*\.wav$/);
 });
 
+test("stored history audio is playable inline after generation", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  const editor = page.locator(".tiptap[contenteditable='true']");
+  await editor.click();
+  await editor.fill("History playback should stay fast.");
+  await page.getByRole("button", { name: "Generate Audio" }).click();
+
+  const historyAudio = page.locator("[id^='history-audio-']").first();
+
+  await expect(historyAudio).toHaveCount(1);
+  await expect(historyAudio).toHaveAttribute("src", /^blob:/);
+  await expect(historyAudio).toHaveAttribute("preload", "metadata");
+  await expect(page.getByText(/Stored .* MB/).first()).toBeVisible();
+});
+
 test("typing into the editor preserves the full text", async ({ page }) => {
   await page.goto("/?mockTts=1");
 

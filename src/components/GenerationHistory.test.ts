@@ -21,6 +21,7 @@ function createItem(overrides: Partial<GenerationHistoryItem> = {}): GenerationH
   return {
     id: "item-1",
     createdAt: new Date("2026-03-26T10:00:00Z").getTime(),
+    sizeBytes: 1_572_864,
     durationMs: 850,
     textLength: 20,
     textPreview: "A short preview line",
@@ -77,6 +78,7 @@ describe("GenerationHistory", () => {
       createItem({
         id: "item-2",
         createdAt: new Date("2026-03-26T10:01:00Z").getTime(),
+        sizeBytes: 2_621_440,
         durationMs: 75_000,
         textPreview: "Second preview",
         voice: "bf_emma",
@@ -101,14 +103,22 @@ describe("GenerationHistory", () => {
     });
 
     expect(wrapper.text()).toContain("Showing 2 of 2");
+    expect(wrapper.text()).toContain("Stored 1.50 MB");
     expect(wrapper.text()).toContain("850 ms");
     expect(wrapper.text()).toContain("1m 15.0s");
+    const historyAudio = wrapper.find("#history-audio-item-1");
+    expect(historyAudio.exists()).toBe(true);
+    expect(historyAudio.attributes("src")).toBe("blob:first");
+    expect(historyAudio.attributes("preload")).toBe("metadata");
+    expect(historyAudio.attributes()).toHaveProperty("controls");
 
     const inputs = wrapper.findAll("input");
     await inputs[0]!.setValue("second");
     expect(wrapper.text()).toContain("Showing 1 of 2");
     expect(wrapper.text()).toContain("second.wav");
+    expect(wrapper.text()).toContain("Stored 2.50 MB");
     expect(wrapper.text()).not.toContain("first.wav");
+    expect(wrapper.find("#history-audio-item-2").attributes("src")).toBe("blob:second");
 
     await inputs[0]!.setValue("missing");
     expect(wrapper.text()).toContain("No recent files match the current search and filters.");
@@ -118,6 +128,7 @@ describe("GenerationHistory", () => {
     await nextTick();
     expect(wrapper.text()).toContain("Showing 1 of 2");
     expect(wrapper.text()).toContain("second.wav");
+    expect(wrapper.find("#history-audio-item-2").exists()).toBe(true);
 
     (wrapper.vm as any).historyVoiceFilter = "all";
     await nextTick();
@@ -137,19 +148,19 @@ describe("GenerationHistory", () => {
       ?.trigger("click");
     expect(renameHistoryOutput).toHaveBeenCalledTimes(1);
 
-    const downloadButton = wrapper.element.querySelector(
-      "[download='first.wav'], [data-download='first.wav']",
-    ) as HTMLElement | null;
-    expect(downloadButton).not.toBeNull();
-    expect(downloadButton?.getAttribute("href") ?? downloadButton?.getAttribute("data-to")).toBe(
-      "blob:first",
+    const downloadTargets = Array.from(
+      wrapper.element.querySelectorAll("[download='first.wav'], [data-download='first.wav']"),
+    ).map((element) => ({
+      href: element.getAttribute("href") ?? element.getAttribute("data-to"),
+      download: element.getAttribute("download") ?? element.getAttribute("data-download"),
+      target: element.getAttribute("target") ?? element.getAttribute("data-target"),
+    }));
+    expect(downloadTargets).toContainEqual(
+      expect.objectContaining({
+        href: "blob:first",
+        download: "first.wav",
+      }),
     );
-    expect(
-      downloadButton?.getAttribute("download") ?? downloadButton?.getAttribute("data-download"),
-    ).toBe("first.wav");
-    expect(
-      downloadButton?.getAttribute("target") ?? downloadButton?.getAttribute("data-target"),
-    ).toBe("_blank");
 
     await wrapper
       .findAll("button")

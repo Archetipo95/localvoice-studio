@@ -288,6 +288,7 @@ describe("useTtsWorker", () => {
       {
         id: "h1",
         createdAt: 1,
+        sizeBytes: 1_572_864,
         durationMs: 10,
         textLength: 4,
         textPreview: "demo",

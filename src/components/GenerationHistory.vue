@@ -40,6 +40,14 @@ function formatDuration(ms: number) {
   return `${minutes}m ${(seconds - minutes * 60).toFixed(1)}s`;
 }
 
+function formatStoredSize(bytes: number) {
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes < 0.01) {
+    return "< 0.01 MB";
+  }
+  return `${megabytes.toFixed(2)} MB`;
+}
+
 function formatTimestamp(timestamp: number) {
   return new Date(timestamp).toLocaleString();
 }
@@ -104,8 +112,22 @@ async function handleRemoveHistory(itemId: string) {
         <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted">
           <span>{{ item.voice }}</span>
           <span>16-bit WAV</span>
+          <span>Stored {{ formatStoredSize(item.sizeBytes) }}</span>
           <span>{{ formatDuration(item.durationMs) }}</span>
           <span>{{ item.textLength }} chars</span>
+        </div>
+        <div class="mt-3 rounded-xl p-3 ring ring-default bg-default transition-all">
+          <audio
+            :id="`history-audio-${item.id}`"
+            class="w-full outline-none h-8 rounded-lg"
+            controls
+            preload="metadata"
+            :src="item.audioUrl"
+          >
+            <a :href="item.audioUrl" :download="item.fileName"
+              >Play or download {{ item.fileName }}</a
+            >
+          </audio>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <UInput
