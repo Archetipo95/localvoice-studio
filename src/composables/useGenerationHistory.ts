@@ -71,7 +71,7 @@ export async function hydrateGenerationHistoryFromCache() {
       if (!response) continue;
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
-      hydrated.push({ ...item, audioUrl });
+      hydrated.push({ ...item, sizeBytes: item.sizeBytes ?? blob.size, audioUrl });
     }
   } catch {
     generationHistory.value = [];

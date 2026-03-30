@@ -9,6 +9,7 @@ function isPersistedHistoryItem(value: unknown): value is PersistedGenerationHis
   return (
     typeof item.id === "string" &&
     Number.isFinite(item.createdAt) &&
+    (item.sizeBytes === undefined || Number.isFinite(item.sizeBytes)) &&
     Number.isFinite(item.durationMs) &&
     Number.isFinite(item.textLength) &&
     typeof item.textPreview === "string" &&
@@ -52,6 +53,7 @@ export function persistGenerationHistory(items: readonly GenerationHistoryItem[]
       (item) => ({
         id: item.id,
         createdAt: item.createdAt,
+        sizeBytes: item.sizeBytes,
         durationMs: item.durationMs,
         textLength: item.textLength,
         textPreview: item.textPreview,

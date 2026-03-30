@@ -173,6 +173,7 @@ function handleWorkerMessage(message: WorkerResponse, initMessage: InitRequest) 
         await appendHistoryItem({
           id: historyId,
           createdAt: now,
+          sizeBytes: blob.size,
           durationMs: lastGenerationDurationMs.value ?? 0,
           textLength: sourceText.length,
           textPreview: sourceText.replace(/\s+/g, " ").trim().slice(0, HISTORY_FILE_PREVIEW_LENGTH),

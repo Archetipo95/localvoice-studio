@@ -44,6 +44,7 @@ function createHistoryItem(overrides: Partial<GenerationHistoryItem> = {}): Gene
   return {
     id: "history-1",
     createdAt: 1,
+    sizeBytes: 1_572_864,
     durationMs: 10,
     textLength: 3,
     textPreview: "abc",
@@ -187,7 +188,30 @@ describe("useGenerationHistory", () => {
     await hydrateGenerationHistoryFromCache();
     expect(generationHistory.value).toHaveLength(1);
     expect(generationHistory.value[0]?.id).toBe("kept");
+    expect(generationHistory.value[0]?.sizeBytes).toBe(1_572_864);
     expect(createObjectURL).toHaveBeenCalled();
+
+    vi.mocked(loadPersistedGenerationHistory).mockReturnValue([
+      createHistoryItem({
+        id: "legacy",
+        cacheKey: "legacy-key",
+        sizeBytes: undefined as unknown as number,
+      }),
+    ]);
+    const legacyBlob = new Blob(["legacy-audio"]);
+    vi.stubGlobal("caches", {
+      open: vi
+        .fn()
+        .mockResolvedValueOnce({
+          match: vi.fn(async () => createCacheResponse(legacyBlob)),
+        })
+        .mockRejectedValueOnce(new Error("cache failed")),
+      delete: vi.fn(async () => true),
+    });
+
+    await hydrateGenerationHistoryFromCache();
+    expect(generationHistory.value[0]?.id).toBe("legacy");
+    expect(generationHistory.value[0]?.sizeBytes).toBe(legacyBlob.size);
 
     await hydrateGenerationHistoryFromCache();
     expect(generationHistory.value).toEqual([]);

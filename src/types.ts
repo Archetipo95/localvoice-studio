@@ -22,6 +22,7 @@ export interface ExportMetadata {
 export interface GenerationHistoryItem {
   id: string;
   createdAt: number;
+  sizeBytes: number;
   durationMs: number;
   textLength: number;
   textPreview: string;
@@ -41,6 +42,7 @@ export interface GenerationHistoryItem {
 export interface PersistedGenerationHistoryItem {
   id: string;
   createdAt: number;
+  sizeBytes?: number;
   durationMs: number;
   textLength: number;
   textPreview: string;

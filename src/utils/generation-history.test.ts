@@ -12,6 +12,7 @@ function createHistoryItem(overrides: Partial<GenerationHistoryItem> = {}): Gene
   return {
     id: "history-1",
     createdAt: 1,
+    sizeBytes: 1_572_864,
     durationMs: 10,
     textLength: 3,
     textPreview: "abc",
@@ -49,6 +50,7 @@ describe("generation-history", () => {
     const validItem: PersistedGenerationHistoryItem = {
       id: "ok",
       createdAt: 1,
+      sizeBytes: 1_024,
       durationMs: 2,
       textLength: 3,
       textPreview: "abc",
@@ -72,6 +74,13 @@ describe("generation-history", () => {
     const loaded = loadPersistedGenerationHistory();
     expect(loaded).toHaveLength(1);
     expect(loaded[0]?.id).toBe("ok");
+    expect(loaded[0]?.sizeBytes).toBe(1_024);
+
+    window.localStorage.setItem(
+      "kokoro-generation-history:v1",
+      JSON.stringify([{ ...validItem, id: "legacy", sizeBytes: undefined }]),
+    );
+    expect(loadPersistedGenerationHistory()[0]?.id).toBe("legacy");
 
     window.localStorage.setItem("kokoro-generation-history:v1", "{not-json");
     expect(loadPersistedGenerationHistory()).toEqual([]);
@@ -91,6 +100,7 @@ describe("generation-history", () => {
     persistGenerationHistory(historyItems);
     const persisted = window.localStorage.getItem("kokoro-generation-history:v1") || "";
     expect(persisted).toContain("history:h1");
+    expect(persisted).toContain('"sizeBytes":1572864');
     expect(persisted).not.toContain("audioUrl");
     expect(persisted).not.toContain('"export"');
 
