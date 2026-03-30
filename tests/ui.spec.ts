@@ -100,7 +100,7 @@ test("stored history audio is playable inline after generation", async ({ page }
 
   const historyAudio = page.locator("[id^='history-audio-']").first();
 
-  await expect(historyAudio).toHaveCount(1);
+  await expect(historyAudio).toBeVisible();
   await expect(historyAudio).toHaveAttribute("src", /^blob:/);
   await expect(historyAudio).toHaveAttribute("preload", "metadata");
   await expect(page.getByText(/Stored .* MB/).first()).toBeVisible();
