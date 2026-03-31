@@ -234,4 +234,59 @@ describe("ScriptLab", () => {
     expect(generation.audioUrl).toBe(null);
     expect(generation.error).toBe(null);
   });
+
+  it("keeps generate disabled until the model is fully ready", async () => {
+    const editor = useEditorStore();
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
+
+    editor.text = "Pending model";
+    generation.status = "error";
+    generation.activityPhase = "error";
+    generation.device = "webgpu";
+    voice.selectedVoice = "af_heart";
+
+    const ScriptLab = (await import("./ScriptLab.vue")).default;
+    const wrapper = mount(ScriptLab, {
+      global: {
+        stubs: {
+          ScriptEditorPanel: ScriptEditorPanelStub,
+          GenerateButton: {
+            props: ["elapsedLabel", "canCancel", "loading", "disabled"],
+            template:
+              "<button id='trigger-generate' :data-disabled='String(disabled)'>Generate</button>",
+          },
+          USlideover: {
+            props: ["open"],
+            emits: ["update:open"],
+            template:
+              "<div v-if='open' class='slideover'><slot name='body' /><slot name='footer' /></div>",
+          },
+          UTextarea: {
+            props: ["modelValue"],
+            emits: ["update:modelValue"],
+            template:
+              "<textarea id='source-draft' :value='modelValue' @input=\"$emit('update:modelValue', $event.target.value)\"></textarea>",
+          },
+          UAccordion: { template: "<div class='markup-guide'><slot /></div>" },
+          UButton: {
+            props: ["disabled"],
+            emits: ["click"],
+            template:
+              "<button :id='$attrs.id' :disabled='disabled' @click=\"$emit('click')\"><slot /></button>",
+          },
+          UAlert: { props: ["title"], template: "<div id='error-text'>{{ title }}</div>" },
+          MarkupGuide: { template: "<div>guide</div>" },
+        },
+      },
+    });
+
+    expect(wrapper.find("#trigger-generate").attributes("data-disabled")).toBe("true");
+
+    generation.status = "ready";
+    generation.activityPhase = "idle";
+    await nextTick();
+
+    expect(wrapper.find("#trigger-generate").attributes("data-disabled")).toBe("false");
+  });
 });

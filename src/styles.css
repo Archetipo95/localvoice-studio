@@ -6,6 +6,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 .editor-doc {
   min-height: 100%;
 }

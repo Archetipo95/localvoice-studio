@@ -151,9 +151,7 @@ defineExpose({
         <GenerateButton
           :can-cancel="canCancel"
           :loading="activityPhase === 'generating'"
-          :disabled="
-            status === 'loading' || status === 'generating' || !voiceStore.selectedVoice || !device
-          "
+          :disabled="status !== 'ready' || !voiceStore.selectedVoice || !device"
           :elapsed-label="elapsedLabel"
           @generate="handleGenerate"
           @cancel="cancelGeneration"
