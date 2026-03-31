@@ -259,9 +259,11 @@ describe("useUiStore", () => {
       paragraphPauseMaxMs: 500,
     };
 
-    ui.setEditorViewMode("plain");
+    ui.setEditorSourcePanelOpen(true);
+    ui.setMarkupGuideOpen(true);
     ui.setModelDownloadApproved(true);
-    expect(ui.editorViewMode).toBe("plain");
+    expect(ui.editorSourcePanelOpen).toBe(true);
+    expect(ui.markupGuideOpen).toBe(true);
     expect(ui.modelDownloadApproved).toBe(true);
 
     ui.upsertPreset(preset as any, fakeModel as any);

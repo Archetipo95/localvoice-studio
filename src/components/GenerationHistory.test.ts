@@ -148,7 +148,7 @@ describe("GenerationHistory", () => {
       ?.trigger("click");
     expect(renameHistoryOutput).toHaveBeenCalledTimes(1);
 
-    const downloadTargets = Array.from(
+    const downloadTargets = Array.from<Element>(
       wrapper.element.querySelectorAll("[download='first.wav'], [data-download='first.wav']"),
     ).map((element) => ({
       href: element.getAttribute("href") ?? element.getAttribute("data-to"),

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { customHandlers, hasSelectedText, textToHtml, toolbarItems } from "./useEditorHandlers";
+import { customHandlers, hasSelectedText, toolbarItems } from "./useEditorHandlers";
+import {
+  PAUSE_TOKEN_NODE,
+  PRONUNCIATION_TOKEN_NODE,
+  STRESS_TOKEN_NODE,
+} from "../utils/editor-document";
 
 function itemKind(item: (typeof toolbarItems)[number][number]) {
   return (item as { kind: string }).kind;
@@ -7,25 +12,33 @@ function itemKind(item: (typeof toolbarItems)[number][number]) {
 
 function createEditor(options?: {
   text?: string;
-  windowText?: string;
   from?: number;
   to?: number;
   empty?: boolean;
   editable?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
+  selectionHasAnnotation?: boolean;
 }) {
   const insertContentAt = vi.fn(() => chain);
-  const setTextSelection = vi.fn(() => chain);
   const undo = vi.fn(() => chain);
   const redo = vi.fn(() => chain);
   const focus = vi.fn(() => chain);
-  const chain = { focus, insertContentAt, setTextSelection, undo, redo };
+  const chain = { focus, insertContentAt, undo, redo };
 
   const text = options?.text ?? "Hello";
-  const windowText = options?.windowText ?? text;
   const from = options?.from ?? 1;
   const to = options?.to ?? text.length + 1;
+
+  const nodesBetween = vi.fn(
+    (start: number, end: number, callback: (node: { type: { name: string } }) => boolean) => {
+      if (!options?.selectionHasAnnotation || start !== from || end !== to) {
+        return;
+      }
+
+      callback({ type: { name: PRONUNCIATION_TOKEN_NODE } });
+    },
+  );
 
   const editor = {
     isEditable: options?.editable ?? true,
@@ -36,11 +49,10 @@ function createEditor(options?: {
         empty: options?.empty ?? false,
       },
       doc: {
-        content: { size: windowText.length + 1 },
-        textBetween: vi.fn((start: number, end: number) => {
-          if (start === from && end === to) return text;
-          return windowText;
-        }),
+        textBetween: vi.fn((start: number, end: number) =>
+          start === from && end === to ? text : "",
+        ),
+        nodesBetween,
       },
     },
     chain: vi.fn(() => chain),
@@ -50,22 +62,8 @@ function createEditor(options?: {
     })),
   };
 
-  return { editor: editor as any, chain, insertContentAt, setTextSelection, undo, redo, focus };
+  return { editor: editor as any, insertContentAt, undo, redo };
 }
-
-describe("textToHtml", () => {
-  it("returns truly empty html for empty editor text", () => {
-    expect(textToHtml("")).toBe("");
-  });
-
-  it("preserves paragraph breaks for non-empty lines", () => {
-    expect(textToHtml("Hello\n\nworld")).toBe("<p>Hello</p><p><br></p><p>world</p>");
-  });
-
-  it("escapes html-sensitive characters", () => {
-    expect(textToHtml("A < B & C > D")).toBe("<p>A &lt; B &amp; C &gt; D</p>");
-  });
-});
 
 describe("customHandlers", () => {
   it("detects whether the editor has non-empty selected text", () => {
@@ -95,92 +93,80 @@ describe("customHandlers", () => {
     expect(redo).toHaveBeenCalledTimes(1);
   });
 
-  it("wraps selections in pronunciation, break, and stress markup", () => {
+  it("wraps selections in structured pronunciation, break, and stress tokens", () => {
     const pronunciation = createEditor({ text: "Word", from: 2, to: 6 });
     customHandlers.pronunciation.execute(pronunciation.editor);
     expect(pronunciation.insertContentAt).toHaveBeenCalledWith(
       { from: 2, to: 6 },
-      { type: "text", text: "[Word](/:/)" },
+      {
+        type: PRONUNCIATION_TOKEN_NODE,
+        attrs: { label: "Word", phonemes: "Word" },
+      },
     );
-    expect(pronunciation.setTextSelection).toHaveBeenCalledWith({ from: 10, to: 11 });
 
     const pause = createEditor({ text: "Pause", from: 3, to: 8 });
     customHandlers.break.execute(pause.editor);
     expect(pause.insertContentAt).toHaveBeenCalledWith(
       { from: 3, to: 8 },
-      { type: "text", text: "[Pause](break:500)" },
+      {
+        type: PAUSE_TOKEN_NODE,
+        attrs: { label: "Pause", pauseMs: 500 },
+      },
     );
-    expect(pause.setTextSelection).toHaveBeenCalledWith({ from: 17, to: 20 });
 
     const stressUp = createEditor({ text: "Loud", from: 1, to: 5 });
     customHandlers.stressUp.execute(stressUp.editor);
     expect(stressUp.insertContentAt).toHaveBeenCalledWith(
       { from: 1, to: 5 },
-      { type: "text", text: "[Loud](+1)" },
+      {
+        type: STRESS_TOKEN_NODE,
+        attrs: { label: "Loud", level: 1 },
+      },
     );
-    expect(stressUp.setTextSelection).toHaveBeenCalledWith({ from: 9, to: 10 });
 
     const stressDown = createEditor({ text: "Soft", from: 1, to: 5 });
     customHandlers.stressDown.execute(stressDown.editor);
     expect(stressDown.insertContentAt).toHaveBeenCalledWith(
       { from: 1, to: 5 },
-      { type: "text", text: "[Soft](-1)" },
-    );
-    expect(stressDown.setTextSelection).toHaveBeenCalledWith({ from: 9, to: 10 });
-  });
-
-  it("selects the pronunciation placeholder character after inserting markup", () => {
-    const pronunciation = createEditor({ text: "Word", from: 2, to: 6 });
-
-    customHandlers.pronunciation.execute(pronunciation.editor);
-
-    const insertCalls = pronunciation.insertContentAt.mock.calls as unknown as Array<
-      [unknown, { text: string }]
-    >;
-    const selectionCalls = pronunciation.setTextSelection.mock.calls as unknown as Array<
-      [{ from: number; to: number }]
-    >;
-    const insertCall = insertCalls[0];
-    const selectionCall = selectionCalls[0];
-
-    expect(insertCall).toBeDefined();
-    expect(selectionCall).toBeDefined();
-    if (!insertCall || !selectionCall) {
-      throw new Error(
-        "Expected pronunciation handler to insert markup and select the placeholder.",
-      );
-    }
-
-    const insertedMarkup = insertCall[1].text;
-    const selection = selectionCall[0];
-
-    expect(insertedMarkup).toBe("[Word](/:/)");
-    expect(selection).toEqual({ from: 10, to: 11 });
-
-    const selectionStartInInsertedMarkup =
-      selection.from - pronunciation.editor.state.selection.from;
-    const selectionEndInInsertedMarkup = selection.to - pronunciation.editor.state.selection.from;
-    expect(insertedMarkup.slice(selectionStartInInsertedMarkup, selectionEndInInsertedMarkup)).toBe(
-      ":",
+      {
+        type: STRESS_TOKEN_NODE,
+        attrs: { label: "Soft", level: -1 },
+      },
     );
   });
 
-  it("blocks markup when the editor is read-only, empty, or already inside markup", () => {
+  it("allows inserting a break token at the cursor without a selection", () => {
+    const pause = createEditor({ text: "", from: 4, to: 4, empty: true });
+
+    expect(customHandlers.break.canExecute(pause.editor)).toBe(true);
+    expect(customHandlers.break.isDisabled(pause.editor)).toBe(false);
+
+    customHandlers.break.execute(pause.editor);
+    expect(pause.insertContentAt).toHaveBeenCalledWith(
+      { from: 4, to: 4 },
+      {
+        type: PAUSE_TOKEN_NODE,
+        attrs: { label: "pause", pauseMs: 500 },
+      },
+    );
+  });
+
+  it("blocks annotation insertion when the editor is read-only, empty, or selection already includes tokens", () => {
     const readOnly = createEditor({ editable: false });
     expect(customHandlers.pronunciation.canExecute(readOnly.editor)).toBe(false);
     expect(customHandlers.pronunciation.isDisabled(readOnly.editor)).toBe(true);
 
     const empty = createEditor({ empty: true });
-    expect(customHandlers.break.canExecute(empty.editor)).toBe(false);
+    expect(customHandlers.pronunciation.canExecute(empty.editor)).toBe(false);
 
-    const insideMarkup = createEditor({
+    const containsAnnotation = createEditor({
       text: "word",
-      windowText: "[word](break:500)",
       from: 2,
       to: 6,
+      selectionHasAnnotation: true,
     });
-    expect(customHandlers.stressUp.canExecute(insideMarkup.editor)).toBe(false);
-    expect(customHandlers.stressDown.isDisabled(insideMarkup.editor)).toBe(true);
+    expect(customHandlers.stressUp.canExecute(containsAnnotation.editor)).toBe(false);
+    expect(customHandlers.stressDown.isDisabled(containsAnnotation.editor)).toBe(true);
   });
 
   it("inserts phonetic characters through generated handlers", () => {

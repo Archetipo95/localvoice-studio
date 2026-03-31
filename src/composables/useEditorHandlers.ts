@@ -1,27 +1,12 @@
 import type { EditorCustomHandlers, EditorHandler, EditorToolbarItem } from "@nuxt/ui";
 import type { Editor } from "@tiptap/vue-3";
 import { getAllPhoneticChars, toPhoneticCharKind } from "../utils/phonetic-chars";
-
-// ── Text helpers ───────────────────────────────────────────────────────────
-
-/**
- * Convert flat speech-markup text to minimal HTML for UEditor.
- * Splits on newlines, HTML-escapes only the characters that matter in HTML
- * (<, >, &). Square brackets and parentheses are safe and will render as-is.
- */
-export function textToHtml(text: string): string {
-  if (text === "") {
-    return "";
-  }
-
-  const lines = text.split("\n");
-  return lines
-    .map((line) => {
-      const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      return `<p>${escaped === "" ? "<br>" : escaped}</p>`;
-    })
-    .join("");
-}
+import {
+  PAUSE_TOKEN_NODE,
+  PRONUNCIATION_TOKEN_NODE,
+  STRESS_TOKEN_NODE,
+  isAnnotationNodeName,
+} from "../utils/editor-document";
 
 // ── Selection helpers ──────────────────────────────────────────────────────
 
@@ -34,40 +19,25 @@ export function hasSelectedText(editor: Editor): boolean {
   return !editor.state.selection.empty && selectionText(editor).trim().length > 0;
 }
 
-const MARKUP_SCAN_LOOKBEHIND = 120;
-const MARKUP_SCAN_LOOKAHEAD = 40;
-
-function isSelectionInsideMarkup(editor: Editor, pattern: RegExp): boolean {
+function selectionContainsAnnotation(editor: Editor): boolean {
   const { from, to, empty } = editor.state.selection;
   if (empty) return false;
 
-  const scanStart = Math.max(1, from - MARKUP_SCAN_LOOKBEHIND);
-  const docSize = editor.state.doc.content?.size ?? to;
-  const scanEnd = Math.min(docSize, to + MARKUP_SCAN_LOOKAHEAD);
-  const windowText = editor.state.doc.textBetween(scanStart, scanEnd, "\n", "\n");
-
-  const selectionStartInWindow = from - scanStart;
-  const selectionEndInWindow = to - scanStart;
-
-  let match: RegExpExecArray | null;
-  const freshPattern = new RegExp(pattern.source, pattern.flags);
-  while ((match = freshPattern.exec(windowText)) !== null) {
-    const matchStart = match.index;
-    const matchEnd = matchStart + match[0].length;
-    if (selectionStartInWindow >= matchStart && selectionEndInWindow <= matchEnd) {
-      return true;
+  let contains = false;
+  editor.state.doc.nodesBetween(from, to, (node) => {
+    if (isAnnotationNodeName(node.type.name)) {
+      contains = true;
+      return false;
     }
-  }
 
-  return false;
+    return true;
+  });
+
+  return contains;
 }
 
 function canApplyMarkup(editor: Editor): boolean {
-  return (
-    hasSelectedText(editor) &&
-    editor.isEditable &&
-    !isSelectionInsideMarkup(editor, /\[[^\]]+\]\((?:\/[^)]*\/|break:\d+|[+-]\d+)\)/g)
-  );
+  return hasSelectedText(editor) && editor.isEditable && !selectionContainsAnnotation(editor);
 }
 
 // ── Phonetic character handlers ────────────────────────────────────────────
@@ -92,40 +62,31 @@ function generatePhoneticHandlers(): EditorCustomHandlers {
   return handlers;
 }
 
-// ── Markup-wrap handler factory ───────────────────────────────────────────
-
-/**
- * Creates a markup-wrap handler that wraps the selected text in `[text](suffix)`.
- * The cursor selection after insertion covers the editable part of the suffix
- * defined by `selectRange`: [start, end) are byte offsets from the opening
- * parenthesis, making them resilient to changes in `selected` length.
- */
-function createMarkupWrapHandler(
-  buildMarkup: (selected: string) => string,
-  /** Offset in chars from the opening '(' to the selection start. */
-  selectOffsetFromParen: number,
-  /** Length in chars of the auto-selected region. */
-  selectLength: number,
+function createAnnotationInsertHandler(
+  buildContent: (selected: string) => { type: string; attrs: Record<string, unknown> },
 ) {
   return {
     canExecute: canApplyMarkup,
     execute: (editor: Editor) => {
       const { from, to } = editor.state.selection;
       const selected = selectionText(editor);
-      const markup = buildMarkup(selected);
-      // [ + selected + ] + ( = selected.length + 2 chars before '('
-      const parenOffset = from + selected.length + 2;
-      const selFrom = parenOffset + selectOffsetFromParen;
-      const selTo = selFrom + selectLength;
-      return editor
-        .chain()
-        .focus()
-        .insertContentAt({ from, to }, { type: "text", text: markup })
-        .setTextSelection({ from: selFrom, to: selTo });
+      return editor.chain().focus().insertContentAt({ from, to }, buildContent(selected));
     },
     isActive: canApplyMarkup,
     isDisabled: (editor: Editor) => !canApplyMarkup(editor),
   };
+}
+
+function canInsertPause(editor: Editor): boolean {
+  if (!editor.isEditable) {
+    return false;
+  }
+
+  if (editor.state.selection.empty) {
+    return true;
+  }
+
+  return !selectionContainsAnnotation(editor);
 }
 
 // ── Custom handlers ────────────────────────────────────────────────────────
@@ -148,38 +109,47 @@ export const customHandlers = {
     execute: (editor: Editor) => {
       const { from, to } = editor.state.selection;
       const selected = selectionText(editor);
-      const markup = `[${selected}](/:/)`;
-      // Select the placeholder inside '/:/' so typing immediately replaces it.
-      const parenOffset = from + selected.length + 2;
-      const selectionFrom = parenOffset + 2;
-      const selectionTo = selectionFrom + 1;
       return editor
         .chain()
         .focus()
-        .insertContentAt({ from, to }, { type: "text", text: markup })
-        .setTextSelection({ from: selectionFrom, to: selectionTo });
+        .insertContentAt(
+          { from, to },
+          {
+            type: PRONUNCIATION_TOKEN_NODE,
+            attrs: { label: selected, phonemes: selected },
+          },
+        );
     },
     isActive: canApplyMarkup,
     isDisabled: (editor: Editor) => !canApplyMarkup(editor),
   },
-  // Offsets: '(break:' = 7 chars from '(', select '500' = 3 chars
-  break: createMarkupWrapHandler(
-    (s) => `[${s}](break:500)`,
-    /* selectOffsetFromParen */ 7,
-    /* selectLength */ 3,
-  ),
-  // Offsets: '(+' = 2 chars before the digit; digit is 1 char
-  stressUp: createMarkupWrapHandler(
-    (s) => `[${s}](+1)`,
-    /* selectOffsetFromParen */ 2,
-    /* selectLength */ 1,
-  ),
-  // Offsets: '(-' = 2 chars before the digit; digit is 1 char
-  stressDown: createMarkupWrapHandler(
-    (s) => `[${s}](-1)`,
-    /* selectOffsetFromParen */ 2,
-    /* selectLength */ 1,
-  ),
+  break: {
+    canExecute: canInsertPause,
+    execute: (editor: Editor) => {
+      const { from, to, empty } = editor.state.selection;
+      const label = empty ? "pause" : selectionText(editor);
+      return editor
+        .chain()
+        .focus()
+        .insertContentAt(
+          { from, to },
+          {
+            type: PAUSE_TOKEN_NODE,
+            attrs: { label, pauseMs: 500 },
+          },
+        );
+    },
+    isActive: canInsertPause,
+    isDisabled: (editor: Editor) => !canInsertPause(editor),
+  },
+  stressUp: createAnnotationInsertHandler((label) => ({
+    type: STRESS_TOKEN_NODE,
+    attrs: { label, level: 1 },
+  })),
+  stressDown: createAnnotationInsertHandler((label) => ({
+    type: STRESS_TOKEN_NODE,
+    attrs: { label, level: -1 },
+  })),
   ...generatePhoneticHandlers(),
 } satisfies EditorCustomHandlers;
 
@@ -191,8 +161,18 @@ export type ScriptEditorToolbarHandlers = typeof customHandlers & {
 
 export const toolbarItems: EditorToolbarItem<ScriptEditorToolbarHandlers>[][] = [
   [
-    { kind: "undo", icon: "i-heroicons-arrow-uturn-left", tooltip: { text: "Undo" } },
-    { kind: "redo", icon: "i-heroicons-arrow-uturn-right", tooltip: { text: "Redo" } },
+    {
+      kind: "undo",
+      icon: "i-heroicons-arrow-uturn-left",
+      tooltip: { text: "Undo" },
+      "aria-label": "Undo",
+    },
+    {
+      kind: "redo",
+      icon: "i-heroicons-arrow-uturn-right",
+      tooltip: { text: "Redo" },
+      "aria-label": "Redo",
+    },
   ],
   [
     {
@@ -205,11 +185,29 @@ export const toolbarItems: EditorToolbarItem<ScriptEditorToolbarHandlers>[][] = 
       kind: "pronunciation",
       icon: "i-heroicons-chat-bubble-oval-left",
       tooltip: { text: "Add pronunciation" },
+      "aria-label": "Add pronunciation",
     },
   ],
-  [{ kind: "break", icon: "i-heroicons-pause-circle", tooltip: { text: "Insert break" } }],
   [
-    { kind: "stressUp", icon: "i-heroicons-chevron-double-up", tooltip: { text: "Stress +1" } },
-    { kind: "stressDown", icon: "i-heroicons-chevron-double-down", tooltip: { text: "Stress -1" } },
+    {
+      kind: "break",
+      icon: "i-heroicons-pause-circle",
+      tooltip: { text: "Insert break" },
+      "aria-label": "Insert break",
+    },
+  ],
+  [
+    {
+      kind: "stressUp",
+      icon: "i-heroicons-chevron-double-up",
+      tooltip: { text: "Stress +1" },
+      "aria-label": "Stress +1",
+    },
+    {
+      kind: "stressDown",
+      icon: "i-heroicons-chevron-double-down",
+      tooltip: { text: "Stress -1" },
+      "aria-label": "Stress -1",
+    },
   ],
 ];
