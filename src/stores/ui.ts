@@ -111,7 +111,7 @@ function loadRuntimePreference(): "webgpu" | "wasm" {
 export const useUiStore = defineStore("ui", {
   state: () => ({
     themeMode: loadThemeMode() as ThemeMode,
-    editorViewMode: "markup" as "markup" | "plain",
+    editorSourcePanelOpen: false,
     secondaryVoiceControlsOpen: false,
     advancedControlsOpen: false,
     markupGuideOpen: false,
@@ -128,8 +128,12 @@ export const useUiStore = defineStore("ui", {
       applyThemeMode(mode);
     },
 
-    setEditorViewMode(mode: "markup" | "plain") {
-      this.editorViewMode = mode;
+    setEditorSourcePanelOpen(open: boolean) {
+      this.editorSourcePanelOpen = open;
+    },
+
+    setMarkupGuideOpen(open: boolean) {
+      this.markupGuideOpen = open;
     },
 
     setRuntimePreference(pref: "webgpu" | "wasm") {

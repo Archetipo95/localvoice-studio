@@ -6,38 +6,94 @@ button {
   cursor: pointer;
 }
 
-/* Keep TipTap paragraphs compact so many blank lines don't distort layout. */
-.tiptap p {
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.editor-doc {
+  min-height: 100%;
+}
+
+.editor-doc p {
   margin: 0;
+  min-height: 1.8em;
 }
 
-.tiptap {
-  max-height: none;
-  overflow: visible;
+.editor-doc p + p {
+  margin-top: 0.75rem;
 }
 
-.tiptap .pronunciation-preview-trigger {
-  display: inline-flex;
-  margin-left: 0.25rem;
-  margin-right: 0.25rem;
-  vertical-align: middle;
-}
-
-.tiptap .pronunciation-preview-trigger-button {
+.editor-doc [data-annotation-token] {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  gap: 0.45rem;
+  margin: 0 0.12rem;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid color-mix(in oklab, var(--ui-border) 78%, transparent);
   border-radius: 9999px;
-  border: 1px solid color-mix(in oklab, var(--ui-border) 70%, transparent);
-  background: color-mix(in oklab, var(--ui-bg-elevated) 92%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--ui-bg-elevated) 84%, transparent),
+    color-mix(in oklab, var(--ui-bg) 76%, var(--ui-primary) 6%)
+  );
   color: var(--ui-text-highlighted);
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
 }
 
-.tiptap .pronunciation-preview-trigger-button:hover,
-.tiptap .pronunciation-preview-trigger-button:focus-visible {
+.editor-doc [data-annotation-token]:hover,
+.editor-doc [data-annotation-token]:focus-visible,
+.editor-doc [data-annotation-token].ProseMirror-selectednode {
   outline: none;
-  border-color: color-mix(in oklab, var(--ui-primary) 50%, transparent);
-  background: color-mix(in oklab, var(--ui-bg-elevated) 70%, var(--ui-primary) 12%);
+  border-color: color-mix(in oklab, var(--ui-primary) 45%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--ui-bg-elevated) 70%, var(--ui-primary) 10%),
+    color-mix(in oklab, var(--ui-bg) 72%, var(--ui-primary) 14%)
+  );
+  transform: translateY(-1px);
+}
+
+.editor-doc .annotation-token__label {
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.editor-doc .annotation-token__badge,
+.editor-doc .annotation-token__action {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.1rem 0.42rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.editor-doc .annotation-token__badge {
+  background: color-mix(in oklab, var(--ui-primary) 14%, transparent);
+  color: color-mix(in oklab, var(--ui-text) 72%, var(--ui-primary) 36%);
+}
+
+.editor-doc .annotation-token__action {
+  background: color-mix(in oklab, var(--ui-bg) 60%, var(--ui-primary) 14%);
+  color: color-mix(in oklab, var(--ui-text) 78%, var(--ui-primary) 44%);
+}
+
+.editor-surface::-webkit-scrollbar {
+  width: 10px;
+}
+
+.editor-surface::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  background-color: color-mix(in oklab, var(--ui-border) 80%, transparent);
 }

@@ -26,6 +26,36 @@ async function _openSecondVoiceControls(page: Page): Promise<void> {
   await expect(secondaryVoiceSelect).toBeVisible();
 }
 
+async function selectTextInEditor(page: Page, value: string): Promise<void> {
+  const editor = page.locator(".tiptap[contenteditable='true']");
+  await expect
+    .poll(async () => {
+      return await editor.evaluate((element, needle) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        let current: Node | null = walker.nextNode();
+
+        while (current) {
+          const text = current.textContent ?? "";
+          const index = text.indexOf(String(needle));
+          if (index >= 0) {
+            const range = document.createRange();
+            range.setStart(current, index);
+            range.setEnd(current, index + String(needle).length);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            return selection?.toString() === needle;
+          }
+
+          current = walker.nextNode();
+        }
+
+        return false;
+      }, value);
+    })
+    .toBe(true);
+}
+
 test("app loads as a calm studio workspace in mock mode", async ({ page }) => {
   await page.goto("/?mockTts=1");
 
@@ -39,17 +69,20 @@ test("app loads as a calm studio workspace in mock mode", async ({ page }) => {
   await expect(page.getByRole("combobox", { name: "Base Voice", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Blend", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Add Voice", exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Help" })).toBeVisible();
   await page.getByRole("combobox", { name: "Base Voice", exact: true }).click();
   await expect(page.getByRole("option", { name: /Heart/ })).toBeVisible();
   await expect(page.getByRole("option", { name: /Michael/ })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.locator(".markup-summary")).toContainText("Speech Markup");
   await expect(page.locator(".output-empty-state")).toContainText(
-    "Generate audio to preview and download your final output.",
+    "Generate audio from the script editor to preview and download your final output.",
   );
   await expect(page.getByLabel("Model Repo")).toHaveCount(0);
-  await page.locator(".markup-summary").click();
+
+  await page.getByRole("button", { name: "Help" }).click();
+  await expect(page.getByText("Speech Markup Guide")).toBeVisible();
   await expect(page.locator("body")).toContainText("[stronger](+1)");
+  await page.locator("#close-source-panel").click();
 });
 
 test("theme defaults to system and follows the browser color scheme", async ({ page }) => {
@@ -131,20 +164,22 @@ test("long editor content keeps the toolbar visible and scrolls inside the edito
   await editor.click();
   await editor.fill(longText);
 
-  const toolbar = page.locator('[aria-label="Toggle markup view"]').first();
+  const helpButton = page.getByRole("button", { name: "Help" });
+  const generateButton = page.getByRole("button", { name: "Generate Audio" });
 
-  await expect(toolbar).toBeVisible();
+  await expect(helpButton).toBeVisible();
+  await expect(generateButton).toBeVisible();
   await expect
     .poll(async () => {
       return await editor.evaluate((element) => {
-        const container = element.parentElement;
+        const container = element.closest(".editor-surface");
         return container ? container.scrollHeight > container.clientHeight : false;
       });
     })
     .toBe(true);
 
   await editor.evaluate((element) => {
-    const container = element.parentElement;
+    const container = element.closest(".editor-surface");
     if (container) {
       container.scrollTop = container.scrollHeight;
     }
@@ -152,27 +187,37 @@ test("long editor content keeps the toolbar visible and scrolls inside the edito
 
   await expect
     .poll(async () => {
-      return await editor.evaluate((element) => element.parentElement?.scrollTop ?? 0);
+      return await editor.evaluate((element) => element.closest(".editor-surface")?.scrollTop ?? 0);
     })
     .toBeGreaterThan(0);
-  await expect(toolbar).toBeVisible();
+  await expect(helpButton).toBeVisible();
+  await expect(generateButton).toBeVisible();
 });
 
-test("phonetic suggestion menu opens and inserts an IPA symbol", async ({ page }) => {
+test("selecting text and applying pronunciation opens a token editor with IPA quick insert", async ({
+  page,
+}) => {
   await page.goto("/?mockTts=1");
 
   const editor = page.locator(".tiptap[contenteditable='true']");
   await editor.click();
-  await editor.press("End");
-  await editor.type(" :sch");
+  await editor.fill("Say Kokoro clearly.");
+  await selectTextInEditor(page, "Kokoro");
 
-  await expect(page.getByRole("listbox")).toBeVisible();
-  await expect(page.getByRole("option", { name: /ə\s+Schwa/ })).toBeVisible();
+  await page.getByRole("button", { name: "Add pronunciation" }).click();
+  await page.locator("[data-annotation-token='pronunciationToken']").first().click();
+  await expect(page.getByText("Quick IPA Insert")).toBeVisible();
 
-  await page.getByRole("option", { name: /ə\s+Schwa/ }).click();
+  const phonemeInput = page.locator("#phoneme-input");
+  await phonemeInput.fill("k");
+  await page.locator("#ipa-search").fill("schwa");
+  await page.getByRole("button", { name: /Schwa/ }).click();
+  await expect(phonemeInput).toHaveValue("kə");
+  await page.locator("[data-annotation-editor]").getByRole("button", { name: "Save" }).click();
 
-  await expect(page.getByRole("listbox")).toHaveCount(0);
-  await expect(editor).toContainText("ə");
+  await page.getByRole("button", { name: "Help" }).click();
+  await expect(page.locator("#source-draft")).toHaveValue(/Say \[Kokoro\]\(\/kə\/\) clearly\./);
+  await page.locator("#close-source-panel").click();
 });
 
 test("runtime can be switched from gpu to cpu", async ({ page }) => {
@@ -210,10 +255,7 @@ test("placeholder shown when editor is empty", async ({ page }) => {
   const placeholderHost = editor.locator("[data-placeholder]").first();
   if (await placeholderHost.count()) {
     await expect(placeholderHost).toBeVisible();
-    await expect(placeholderHost).toHaveAttribute(
-      "data-placeholder",
-      /Type something to generate speech\.\.\./,
-    );
+    await expect(placeholderHost).toHaveAttribute("data-placeholder", /Start with your script\./);
     return;
   }
 
@@ -244,11 +286,76 @@ test("placeholder hidden when text is entered", async ({ page }) => {
 test("pronunciation tokens show a speaker button and play a preview", async ({ page }) => {
   await page.goto("/?mockTts=1");
 
-  const token = page.locator("[data-pronunciation-markup*='stewardship']").first();
   const button = page.getByRole("button", { name: "Play pronunciation for stewardship" });
 
   await expect(button).toBeVisible();
-  await token.hover();
   await button.click();
   await expect(page.locator("#output-audio")).toHaveCount(0);
+});
+
+test("editing source markup rehydrates the compose view", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  await page.getByRole("button", { name: "Help" }).click();
+  const source = page.locator("#source-draft");
+  await source.fill("Say [Kokoro](/kˈoʊkəɹoʊ/) clearly.");
+  await page.locator("#apply-source-changes").click();
+
+  await expect(page.getByText("Kokoro").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play pronunciation for Kokoro" })).toBeVisible();
+});
+
+test("malformed source markup stays editable as plain text", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  await page.getByRole("button", { name: "Help" }).click();
+  const source = page.locator("#source-draft");
+  await source.fill("Keep [missing](break:) exactly as typed.");
+  await page.locator("#apply-source-changes").click();
+
+  await expect(page.locator(".tiptap[contenteditable='true']")).toContainText(
+    "Keep [missing](break:) exactly as typed.",
+  );
+
+  await page.getByRole("button", { name: "Help" }).click();
+  await expect(page.locator("#source-draft")).toHaveValue(
+    "Keep [missing](break:) exactly as typed.",
+  );
+});
+
+test("existing pause and stress tokens can be reopened and saved", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  await page.getByRole("button", { name: "Help" }).click();
+  const source = page.locator("#source-draft");
+  await source.fill("Say [pause here](break:500) and [better](+1).");
+  await page.locator("#apply-source-changes").click();
+
+  await page.locator("[data-annotation-token='pauseToken']").click();
+  await page.locator("#pause-input").fill("650");
+  await page.locator("[data-annotation-editor]").getByRole("button", { name: "Save" }).click();
+
+  await page.locator("[data-annotation-token='stressToken']").click();
+  await page.locator("[data-annotation-editor]").getByRole("button", { name: "+2" }).click();
+  await page.locator("[data-annotation-editor]").getByRole("button", { name: "Save" }).click();
+
+  await page.getByRole("button", { name: "Help" }).click();
+  await expect(page.locator("#source-draft")).toHaveValue(
+    "Say [pause here](break:650) and [better](+2).",
+  );
+});
+
+test("removing a token updates the underlying raw markup", async ({ page }) => {
+  await page.goto("/?mockTts=1");
+
+  await page.getByRole("button", { name: "Help" }).click();
+  const source = page.locator("#source-draft");
+  await source.fill("Say [Kokoro](/kˈoʊkəɹoʊ/) clearly.");
+  await page.locator("#apply-source-changes").click();
+
+  await page.locator("[data-annotation-token='pronunciationToken']").click();
+  await page.locator("[data-annotation-editor]").getByRole("button", { name: "Remove" }).click();
+
+  await page.getByRole("button", { name: "Help" }).click();
+  await expect(page.locator("#source-draft")).toHaveValue("Say  clearly.");
 });

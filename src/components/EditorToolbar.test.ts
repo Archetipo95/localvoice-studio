@@ -4,23 +4,21 @@ import { nextTick } from "vue";
 import { describe, expect, it } from "vitest";
 
 describe("EditorToolbar", () => {
-  it("passes editor props through and emits mode changes", async () => {
+  it("passes editor props through and emits the help action", async () => {
     const EditorToolbar = (await import("./EditorToolbar.vue")).default;
     const items = [[{ label: "Bold" }]];
     const wrapper = mount(EditorToolbar, {
       props: {
         editor: {} as any,
         items,
-        isMarkupMode: true,
       },
     });
 
-    expect(wrapper.text()).toContain("Plain");
-    expect(wrapper.text()).toContain("Markup");
+    expect(wrapper.text()).toContain("Help");
     expect(wrapper.text()).toContain("Bold");
 
-    await wrapper.find("[role='switch']").trigger("click");
+    await wrapper.find('[aria-label="Open markup help"]').trigger("click");
     await nextTick();
-    expect(wrapper.emitted("toggle-mode")).toEqual([[false]]);
+    expect(wrapper.emitted("open-help")).toEqual([[]]);
   });
 });

@@ -87,4 +87,25 @@ describe("speech markup helpers", () => {
       },
     ]);
   });
+
+  it("supports empty labels in speech markup tokens", () => {
+    expect(parseSpeechMarkup("Before [](break:500)[](+1)[](/aɪ/).")).toEqual([
+      { type: "text", value: "Before " },
+      { type: "break", label: "", value: "", pauseMs: 500 },
+      { type: "stress", label: "", value: "", level: 1 },
+      { type: "phoneme", label: "", value: "aɪ" },
+      { type: "text", value: "." },
+    ]);
+
+    expect(hasSpeechMarkup("[](break:500)")).toBe(true);
+    expect(findPronunciationMarkupTokens("[](/aɪ/)")).toEqual([
+      {
+        label: "",
+        phonemes: "aɪ",
+        markup: "[](/aɪ/)",
+        from: 0,
+        to: 8,
+      },
+    ]);
+  });
 });

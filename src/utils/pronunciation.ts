@@ -4,8 +4,8 @@ export type SpeechMarkupSegment =
   | { type: "stress"; value: string; label: string; level: -2 | -1 | 1 | 2 }
   | { type: "break"; value: string; label: string; pauseMs: number };
 
-const SPEECH_MARKUP_PATTERN = /\[([^\]]+)\]\((\/[^)]+\/|[+-][12]|break:\d+)\)/g;
-const PRONUNCIATION_MARKUP_PATTERN = /\[([^\]]+)\]\((\/[^)]+\/)\)/g;
+const SPEECH_MARKUP_PATTERN = /\[([^\]]*)\]\((\/[^)]*\/|[+-][12]|break:\d+)\)/g;
+const PRONUNCIATION_MARKUP_PATTERN = /\[([^\]]*)\]\((\/[^)]*\/)\)/g;
 const VOWEL_OR_STRESSABLE_PATTERN = /[aəeɛɪiɔoʊuʌæɑɚɝɒœøyɨɐɜɞɯʉʏɶ]/i;
 
 export interface PronunciationMarkupToken {
