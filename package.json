@@ -28,7 +28,7 @@
     "phonemizer": "^1.2.1",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.2",
-    "vue": "^3.5.30",
+    "vue": "^3.5.32",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
