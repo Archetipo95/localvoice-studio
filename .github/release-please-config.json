@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "0f40030d318c9062653b2e4240f723511f454b6e",
+  "draft-pull-request": true,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "localvoice-studio",
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true,
+      "initial-version": "1.0.0",
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance"
+        },
+        {
+          "type": "deps",
+          "section": "Dependencies"
+        },
+        {
+          "type": "revert",
+          "section": "Reverts"
+        }
+      ]
+    }
+  }
+}
