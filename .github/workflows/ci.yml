@@ -25,7 +25,7 @@ jobs:
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1.6.0
         with:
-          node-version: "22"
+          node-version: "24"
           cache: true
 
       - name: Check (format + lint + typecheck)

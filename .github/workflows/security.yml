@@ -22,7 +22,7 @@ jobs:
   npm-audit:
     runs-on: ubuntu-latest
     container:
-      image: node:22-bookworm-slim
+      image: node:24-bookworm-slim
     steps:
       - name: Checkout
         uses: actions/checkout@v6
