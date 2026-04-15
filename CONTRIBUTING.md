@@ -44,14 +44,12 @@ npm run check:fix
 
 ## Releases
 
-This repository uses Release Please to automate versioning, changelog updates, tags, and GitHub Releases.
+This repository uses semantic-release to automate versioning, changelog updates, tags, and GitHub Releases.
 
 - Do not manually edit `package.json` versions or `CHANGELOG.md` for normal feature work.
-- Merge releasable work into `main`; Release Please will open or update the release PR automatically.
-- Release PRs are kept as drafts so version bumps and notes stay easy to review before publication.
+- Merge releasable work into `main`; semantic-release runs on push and creates releases automatically.
 - Mark breaking changes with `!` in the commit header or a `BREAKING CHANGE:` footer so the next release can bump the major version correctly.
-- Keep release-facing commits focused on `feat:`, `fix:`, `perf:`, and `revert:` when you want them to appear in release notes.
-- If release notes need adjustment after merge, update the merged pull request description or follow the Release Please commit override flow.
+- Use Conventional Commits so release notes and version bumps stay predictable.
 
 ## Commit Guidance
 
@@ -72,8 +70,8 @@ Release impact:
 
 - `feat:` bumps the minor version.
 - `fix:` bumps the patch version.
-- `perf:` and `revert:` stay eligible for release note entries without changing the basic SemVer rules.
+- `perf:`, `revert:`, and `deps:` bump the patch version.
+- `chore:`, `ci:`, `docs:`, `refactor:`, and `test:` bump the patch version.
 - `feat!:` or any commit with `BREAKING CHANGE:` bumps the major version.
-- `docs:`, `test:`, `chore:`, and similar commit types do not create a release on their own.
 
 When possible, prefer squash-merge pull requests so the final merged commit message is clean and release notes stay readable.
