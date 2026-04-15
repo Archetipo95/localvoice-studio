@@ -1,3 +1,18 @@
+## [1.2.0](https://github.com/Archetipo95/localvoice-studio/compare/v1.1.3...v1.2.0) (2026-04-15)
+
+### Features
+
+* **changelog:** improve release rendering and section grouping ([3bbb9e6](https://github.com/Archetipo95/localvoice-studio/commit/3bbb9e6cc321ef8bd838721b6f7f1c3998ad89fe))
+* **ui:** refine header links and footer navigation ([8496d00](https://github.com/Archetipo95/localvoice-studio/commit/8496d00ea5a61945690cf92d518597d04a91adbd))
+
+### Bug Fixes
+
+* **tests:** update changelog API endpoint and response structure ([4e678b2](https://github.com/Archetipo95/localvoice-studio/commit/4e678b26cc9cd3dca0a25b309d7bee91a6b588e5))
+
+### Documentation
+
+* **changelog:** add emoji headings to historical release groups ([0d6f15d](https://github.com/Archetipo95/localvoice-studio/commit/0d6f15df55494e7291a7cf4962a94b813d655246))
+
 ## [1.1.3](https://github.com/Archetipo95/localvoice-studio/compare/v1.1.2...v1.1.3) (2026-04-15)
 
 ### Bug Fixes
