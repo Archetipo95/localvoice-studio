@@ -9,31 +9,32 @@ export interface GithubReleaseVersion {
 }
 
 interface GithubReleaseFeed {
-  releases?: Array<{
-    name?: string;
-    tag?: string;
-    publishedAt?: string;
-    markdown?: string;
-    url?: string;
-  }>;
+  name?: string;
+  tag_name?: string;
+  published_at?: string;
+  body?: string;
+  html_url?: string;
+  draft?: boolean;
 }
 
 const REPOSITORY = "Archetipo95/localvoice-studio";
 export const GITHUB_RELEASES_PAGE_URL = `https://github.com/${REPOSITORY}/releases`;
-export const GITHUB_RELEASES_FEED_URL = `https://ungh.cc/repos/${REPOSITORY}/releases`;
+export const GITHUB_RELEASES_FEED_URL = `https://api.github.com/repos/${REPOSITORY}/releases`;
 
-export function normalizeGithubReleases(feed: GithubReleaseFeed): GithubReleaseVersion[] {
-  return (feed.releases ?? [])
-    .filter(
-      (release): release is NonNullable<GithubReleaseFeed["releases"]>[number] & { tag: string } =>
-        Boolean(release?.tag),
+export function normalizeGithubReleases(feed: GithubReleaseFeed[]): GithubReleaseVersion[] {
+  return feed
+    .filter((release): release is GithubReleaseFeed & { tag_name: string } =>
+      Boolean(release.tag_name),
     )
+    .filter((release) => !release.draft)
     .map((release) => ({
-      tag: release.tag,
-      title: release.name?.trim() || release.tag,
-      date: release.publishedAt || "",
-      markdown: release.markdown || "",
-      url: release.url || `${GITHUB_RELEASES_PAGE_URL}/tag/${encodeURIComponent(release.tag)}`,
+      tag: release.tag_name,
+      title: release.name?.trim() || release.tag_name,
+      date: release.published_at || "",
+      markdown: release.body || "",
+      url:
+        release.html_url ||
+        `${GITHUB_RELEASES_PAGE_URL}/tag/${encodeURIComponent(release.tag_name)}`,
     }));
 }
 
@@ -50,7 +51,7 @@ export async function fetchGithubReleases(
     throw new Error(`Unable to load releases (${response.status})`);
   }
 
-  const feed = (await response.json()) as GithubReleaseFeed;
+  const feed = (await response.json()) as GithubReleaseFeed[];
   return normalizeGithubReleases(feed);
 }
 

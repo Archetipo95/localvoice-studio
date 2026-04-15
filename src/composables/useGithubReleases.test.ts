@@ -8,17 +8,15 @@ import {
 
 describe("normalizeGithubReleases", () => {
   it("maps release feed entries into the app version shape", () => {
-    const versions = normalizeGithubReleases({
-      releases: [
-        {
-          name: "Version 1.2.0",
-          tag: "v1.2.0",
-          publishedAt: "2026-04-15T10:00:00.000Z",
-          markdown: "## Added\n- Changelog page",
-          url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.2.0",
-        },
-      ],
-    });
+    const versions = normalizeGithubReleases([
+      {
+        name: "Version 1.2.0",
+        tag_name: "v1.2.0",
+        published_at: "2026-04-15T10:00:00.000Z",
+        body: "## Added\n- Changelog page",
+        html_url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.2.0",
+      },
+    ]);
 
     expect(versions).toEqual([
       {
@@ -32,14 +30,12 @@ describe("normalizeGithubReleases", () => {
   });
 
   it("falls back safely when name, markdown, or url are missing", () => {
-    const versions = normalizeGithubReleases({
-      releases: [
-        {
-          tag: "v1.0.0",
-          publishedAt: "not-a-real-date",
-        },
-      ],
-    });
+    const versions = normalizeGithubReleases([
+      {
+        tag_name: "v1.0.0",
+        published_at: "not-a-real-date",
+      },
+    ]);
 
     expect(versions).toEqual([
       {
@@ -53,13 +49,23 @@ describe("normalizeGithubReleases", () => {
   });
 
   it("ignores releases that do not have a tag", () => {
-    const versions = normalizeGithubReleases({
-      releases: [
-        {
-          name: "Incomplete release",
-        },
-      ],
-    });
+    const versions = normalizeGithubReleases([
+      {
+        name: "Incomplete release",
+      },
+    ]);
+
+    expect(versions).toEqual([]);
+  });
+
+  it("ignores draft releases", () => {
+    const versions = normalizeGithubReleases([
+      {
+        name: "Draft release",
+        tag_name: "v9.9.9",
+        draft: true,
+      },
+    ]);
 
     expect(versions).toEqual([]);
   });
@@ -69,9 +75,7 @@ describe("fetchGithubReleases", () => {
   it("requests the public releases feed and normalizes the payload", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        releases: [{ tag: "v1.0.0", markdown: "Hello" }],
-      }),
+      json: async () => [{ tag_name: "v1.0.0", body: "Hello" }],
     });
 
     const versions = await fetchGithubReleases(fetchMock as unknown as typeof fetch);
