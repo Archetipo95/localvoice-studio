@@ -13,7 +13,7 @@ describe("normalizeGithubReleases", () => {
         name: "Version 1.2.0",
         tag_name: "v1.2.0",
         published_at: "2026-04-15T10:00:00.000Z",
-        body: "## Added\n- Changelog page",
+        body: "## 1.2.0 (2026-04-15)\n\n## Added\n- Changelog page",
         html_url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.2.0",
       },
     ]);
@@ -23,10 +23,47 @@ describe("normalizeGithubReleases", () => {
         tag: "v1.2.0",
         title: "Version 1.2.0",
         date: "2026-04-15T10:00:00.000Z",
-        markdown: "## Added\n- Changelog page",
+        markdown: "## 🚀 Added\n- Changelog page",
         url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.2.0",
       },
     ]);
+  });
+
+  it("keeps the first markdown heading when it is not a duplicate version/date line", () => {
+    const versions = normalizeGithubReleases([
+      {
+        name: "Version 1.2.0",
+        tag_name: "v1.2.0",
+        published_at: "2026-04-15T10:00:00.000Z",
+        body: "## Highlights\n- Better controls",
+      },
+    ]);
+
+    expect(versions[0]?.markdown).toBe("## Highlights\n- Better controls");
+  });
+
+  it("adds Nuxt-style emojis to common changelog groups", () => {
+    const versions = normalizeGithubReleases([
+      {
+        name: "Version 1.3.0",
+        tag_name: "v1.3.0",
+        body: "## Fixes\n- Better retry\n## Docs\n- Improve README",
+      },
+    ]);
+
+    expect(versions[0]?.markdown).toBe("## 🩹 Fixes\n- Better retry\n## 📖 Docs\n- Improve README");
+  });
+
+  it("does not duplicate emoji when a section heading already has one", () => {
+    const versions = normalizeGithubReleases([
+      {
+        name: "Version 1.3.1",
+        tag_name: "v1.3.1",
+        body: "## 🩹 Fixes\n- Preserve formatting",
+      },
+    ]);
+
+    expect(versions[0]?.markdown).toBe("## 🩹 Fixes\n- Preserve formatting");
   });
 
   it("falls back safely when name, markdown, or url are missing", () => {

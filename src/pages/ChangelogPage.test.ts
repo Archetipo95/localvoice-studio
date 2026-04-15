@@ -84,7 +84,7 @@ describe("ChangelogPage", () => {
     versions.value = [
       {
         tag: "v1.1.0",
-        title: "Version 1.1.0",
+        title: "Spring polish",
         date: "2026-04-15T10:00:00.000Z",
         markdown: "## Added\n- Dedicated changelog page",
         url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
@@ -93,9 +93,26 @@ describe("ChangelogPage", () => {
 
     const wrapper = await mountPage();
 
-    expect(wrapper.text()).toContain("Version 1.1.0");
+    expect(wrapper.text()).toContain("Spring polish");
     expect(wrapper.text()).toContain("v1.1.0");
     expect(wrapper.text()).toContain("Dedicated changelog page");
     expect(wrapper.text()).toContain("View on GitHub");
+  });
+
+  it("hides redundant version badge when title already carries the version", async () => {
+    versions.value = [
+      {
+        tag: "v1.1.0",
+        title: "1.1.0",
+        date: "2026-04-15T10:00:00.000Z",
+        markdown: "## Added\n- Dedicated changelog page",
+        url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
+      },
+    ];
+
+    const wrapper = await mountPage();
+
+    expect(wrapper.text()).not.toContain("v1.1.0");
+    expect(wrapper.text()).toContain("1.1.0");
   });
 });

@@ -97,3 +97,15 @@ button[aria-disabled="true"] {
   background-clip: padding-box;
   background-color: color-mix(in oklab, var(--ui-border) 80%, transparent);
 }
+
+.release-markdown a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+}
+
+.release-markdown a code {
+  color: inherit;
+  text-decoration: inherit;
+}

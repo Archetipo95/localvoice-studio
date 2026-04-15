@@ -6,39 +6,39 @@
 
 ## [1.1.2](https://github.com/Archetipo95/localvoice-studio/compare/v1.1.1...v1.1.2) (2026-04-15)
 
-### Bug Fixes
+### 🩹 Bug Fixes
 
-* update tag format to use semantic versioning ([d22ec39](https://github.com/Archetipo95/localvoice-studio/commit/d22ec3906aabed02a2375fdea2d8577734a2697a))
+- update tag format to use semantic versioning ([d22ec39](https://github.com/Archetipo95/localvoice-studio/commit/d22ec3906aabed02a2375fdea2d8577734a2697a))
 
 ## [1.1.1](https://github.com/Archetipo95/localvoice-studio/compare/localvoice-studio-v1.1.0...localvoice-studio-v1.1.1) (2026-04-15)
 
-### Bug Fixes
+### 🩹 Bug Fixes
 
-* add missing conventional commits preset for semantic-release ([ebb20be](https://github.com/Archetipo95/localvoice-studio/commit/ebb20be5d6c9ba9ca0db8c06c565696f263ce510))
+- add missing conventional commits preset for semantic-release ([ebb20be](https://github.com/Archetipo95/localvoice-studio/commit/ebb20be5d6c9ba9ca0db8c06c565696f263ce510))
 
-### Chores
+### 🏡 Chores
 
-* ignore generated changelog formatting ([f601081](https://github.com/Archetipo95/localvoice-studio/commit/f601081ab260b18f1784ac0b203e65d41e5cd465))
-* migrate release automation to semantic-release ([7ffd050](https://github.com/Archetipo95/localvoice-studio/commit/7ffd050636459a22b7f1700d0a18c087c7a04aa2))
-* update CI actions and dependencies ([dd2dd80](https://github.com/Archetipo95/localvoice-studio/commit/dd2dd80b91d7b68a4a93513d6619258bb5a3a481))
-* update semantic-release and related packages ([c867c7f](https://github.com/Archetipo95/localvoice-studio/commit/c867c7fc6c9acd8db0c6d6b4a865f2332d43ad7c))
-* upgrade Node.js to v24 and Playwright to v1.59.1 across CI workflows ([58109fd](https://github.com/Archetipo95/localvoice-studio/commit/58109fd56ed559bb3fc3dc3e57976f9d8b18c8f2))
-* use vite-plus config typing ([3f5a0bb](https://github.com/Archetipo95/localvoice-studio/commit/3f5a0bb10d7facb6c56b54bc69d385ddbd0a8edc))
+- ignore generated changelog formatting ([f601081](https://github.com/Archetipo95/localvoice-studio/commit/f601081ab260b18f1784ac0b203e65d41e5cd465))
+- migrate release automation to semantic-release ([7ffd050](https://github.com/Archetipo95/localvoice-studio/commit/7ffd050636459a22b7f1700d0a18c087c7a04aa2))
+- update CI actions and dependencies ([dd2dd80](https://github.com/Archetipo95/localvoice-studio/commit/dd2dd80b91d7b68a4a93513d6619258bb5a3a481))
+- update semantic-release and related packages ([c867c7f](https://github.com/Archetipo95/localvoice-studio/commit/c867c7fc6c9acd8db0c6d6b4a865f2332d43ad7c))
+- upgrade Node.js to v24 and Playwright to v1.59.1 across CI workflows ([58109fd](https://github.com/Archetipo95/localvoice-studio/commit/58109fd56ed559bb3fc3dc3e57976f9d8b18c8f2))
+- use vite-plus config typing ([3f5a0bb](https://github.com/Archetipo95/localvoice-studio/commit/3f5a0bb10d7facb6c56b54bc69d385ddbd0a8edc))
 
-### CI
+### 📦 CI
 
-* enforce strict audit with scoped upstream exceptions ([1f1730b](https://github.com/Archetipo95/localvoice-studio/commit/1f1730bf7beb589e797c444804e0738592f6de26))
-* make full npm audit non-blocking in security workflow ([222df1d](https://github.com/Archetipo95/localvoice-studio/commit/222df1d5bc431f263c75f754d3ef81dc0f7fc5da))
+- enforce strict audit with scoped upstream exceptions ([1f1730b](https://github.com/Archetipo95/localvoice-studio/commit/1f1730bf7beb589e797c444804e0738592f6de26))
+- make full npm audit non-blocking in security workflow ([222df1d](https://github.com/Archetipo95/localvoice-studio/commit/222df1d5bc431f263c75f754d3ef81dc0f7fc5da))
 
 # Changelog
 
 ## [1.1.0](https://github.com/Archetipo95/localvoice-studio/compare/localvoice-studio-v1.0.0...localvoice-studio-v1.1.0) (2026-04-15)
 
-### Features
+### 🚀 Features
 
 - add dedicated changelog page ([657f324](https://github.com/Archetipo95/localvoice-studio/commit/657f324a8b5d5a6702f6b835ec4fc0951dddb9de))
 
-### Bug Fixes
+### 🩹 Bug Fixes
 
 - patch dependencies for security workflow ([647d1d5](https://github.com/Archetipo95/localvoice-studio/commit/647d1d5396f985fd44dca2d26594bbd15a32305f))
 
