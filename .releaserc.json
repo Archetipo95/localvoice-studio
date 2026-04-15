@@ -1,6 +1,6 @@
 {
   "branches": ["main"],
-  "tagFormat": "localvoice-studio-v${version}",
+  "tagFormat": "v${version}",
   "plugins": [
     [
       "@semantic-release/commit-analyzer",
