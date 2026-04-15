@@ -1,3 +1,9 @@
+## [1.1.3](https://github.com/Archetipo95/localvoice-studio/compare/v1.1.2...v1.1.3) (2026-04-15)
+
+### Bug Fixes
+
+* **changelog:** use GitHub releases API instead of ungh cache ([99999fa](https://github.com/Archetipo95/localvoice-studio/commit/99999faeef5c6a4686ff08abde231c896dd7493e))
+
 ## [1.1.2](https://github.com/Archetipo95/localvoice-studio/compare/v1.1.1...v1.1.2) (2026-04-15)
 
 ### Bug Fixes
