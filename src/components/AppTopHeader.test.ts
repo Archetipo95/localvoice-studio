@@ -43,6 +43,8 @@ describe("AppTopHeader", () => {
 
     expect(wrapper.text()).toContain("LocalVoice Studio");
     expect(wrapper.text()).toContain("Powered by Kokoro");
+    expect(wrapper.text()).toContain("Changelog");
+    expect(wrapper.text()).toContain("Open Source");
     expect(wrapper.text()).toContain("System");
 
     (wrapper.vm as any).themeMenuItems[2].onSelect();
