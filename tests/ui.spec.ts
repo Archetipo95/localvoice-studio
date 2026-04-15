@@ -87,21 +87,19 @@ test("app loads as a calm studio workspace in mock mode", async ({ page }) => {
 
 test("users can navigate to the changelog page and read release notes", async ({ page }) => {
   await page.route(
-    "https://ungh.cc/repos/Archetipo95/localvoice-studio/releases",
+    "https://api.github.com/repos/Archetipo95/localvoice-studio/releases",
     async (route) => {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify({
-          releases: [
-            {
-              name: "Version 1.1.0",
-              tag: "v1.1.0",
-              publishedAt: "2026-04-15T10:00:00.000Z",
-              markdown: "## Added\n- Dedicated changelog page",
-              url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
-            },
-          ],
-        }),
+        body: JSON.stringify([
+          {
+            name: "Version 1.1.0",
+            tag_name: "v1.1.0",
+            published_at: "2026-04-15T10:00:00.000Z",
+            body: "## Added\n- Dedicated changelog page",
+            html_url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
+          },
+        ]),
       });
     },
   );
@@ -117,19 +115,17 @@ test("users can navigate to the changelog page and read release notes", async ({
 
 test("direct visits to the changelog route render the release timeline", async ({ page }) => {
   await page.route(
-    "https://ungh.cc/repos/Archetipo95/localvoice-studio/releases",
+    "https://api.github.com/repos/Archetipo95/localvoice-studio/releases",
     async (route) => {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify({
-          releases: [
-            {
-              tag: "v1.0.0",
-              publishedAt: "2026-04-14T08:30:00.000Z",
-              markdown: "Initial public changelog entry.",
-            },
-          ],
-        }),
+        body: JSON.stringify([
+          {
+            tag_name: "v1.0.0",
+            published_at: "2026-04-14T08:30:00.000Z",
+            body: "Initial public changelog entry.",
+          },
+        ]),
       });
     },
   );
