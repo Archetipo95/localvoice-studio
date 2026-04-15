@@ -111,9 +111,9 @@
       }
     ],
     [
-      "@semantic-release/npm",
+      "@semantic-release/exec",
       {
-        "npmPublish": false
+        "prepareCmd": "npm version ${nextRelease.version} --no-git-tag-version --allow-same-version && npm install --package-lock-only --ignore-scripts --prefer-offline --no-audit --no-fund"
       }
     ],
     "@semantic-release/github",
