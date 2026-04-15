@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
-    "@nuxt/ui": "^4.6.0",
+    "@nuxt/ui": "^4.6.1",
     "kokoro-js": "^1.2.1",
     "marked": "^18.0.0",
     "phonemizer": "^1.2.1",
@@ -40,13 +40,17 @@
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^29.0.1",
     "typescript": "^5.9.3",
-    "vite": "^8.0.2",
+    "vite": "^8.0.8",
     "vite-plus": "^0.1.14",
     "vitest": "^4.1.1",
     "vue-tsc": "^3.2.6"
   },
   "overrides": {
-    "picomatch": "^4.0.4"
+    "@unhead/vue": "2.1.13",
+    "brace-expansion": "2.0.3",
+    "defu": "6.1.7",
+    "picomatch": "^4.0.4",
+    "unhead": "2.1.13"
   },
   "packageManager": "npm@11.12.0"
 }
