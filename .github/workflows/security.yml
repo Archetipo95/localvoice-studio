@@ -33,5 +33,44 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Audit all dependencies
-        run: npm audit --audit-level=high
+      - name: Audit all dependencies (strict with temporary upstream exceptions)
+        run: |
+          npm audit --json > audit-report.json || true
+          node -e '
+            const fs = require("node:fs");
+
+            const severityRank = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
+            const threshold = severityRank.high;
+            const allowedPackages = new Set(["brace-expansion", "picomatch"]);
+            const allowedNodePrefix = "node_modules/npm/node_modules/";
+
+            const report = JSON.parse(fs.readFileSync("audit-report.json", "utf8"));
+            const vulnerabilities = Object.values(report.vulnerabilities || {});
+
+            const findingsAtOrAboveThreshold = vulnerabilities.filter((v) => {
+              const sev = severityRank[v.severity] ?? -1;
+              return sev >= threshold;
+            });
+
+            const isAllowed = (v) =>
+              allowedPackages.has(v.name) &&
+              Array.isArray(v.nodes) &&
+              v.nodes.length > 0 &&
+              v.nodes.every((n) => n.startsWith(allowedNodePrefix));
+
+            const blocked = findingsAtOrAboveThreshold.filter((v) => !isAllowed(v));
+
+            if (blocked.length > 0) {
+              console.error("Blocking audit findings (high/critical):");
+              for (const vuln of blocked) {
+                console.error(`- ${vuln.name} (${vuln.severity}) @ ${vuln.nodes?.join(", ")}`);
+              }
+              process.exit(1);
+            }
+
+            if (findingsAtOrAboveThreshold.length > 0) {
+              console.log("Only known upstream-unfixable npm bundled findings detected.");
+            } else {
+              console.log("No high/critical findings detected.");
+            }
+          '
