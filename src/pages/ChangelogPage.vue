@@ -9,6 +9,22 @@ const { versions, pending, error, refresh } = useGithubReleases();
 const skeletonVersions = Array.from({ length: 3 }, (_, index) => index);
 const hasVersions = computed(() => versions.value.length > 0);
 
+function extractVersionToken(text: string): string | null {
+  const match = text.match(/v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/i);
+  return match?.[1]?.toLowerCase() || null;
+}
+
+function shouldShowTag(version: { title: string; tag: string }): boolean {
+  const titleVersion = extractVersionToken(version.title);
+  const tagVersion = extractVersionToken(version.tag);
+
+  if (titleVersion && tagVersion) {
+    return titleVersion !== tagVersion;
+  }
+
+  return version.title.trim().toLowerCase() !== version.tag.trim().toLowerCase();
+}
+
 onMounted(() => {
   document.title = "Changelog - LocalVoice Studio";
 });
@@ -17,7 +33,6 @@ onMounted(() => {
 <template>
   <section class="space-y-8">
     <section class="space-y-3">
-      <UBadge color="neutral" variant="soft" label="Release history" />
       <h1 class="text-3xl sm:text-4xl font-semibold text-highlighted">Changelog</h1>
       <p class="max-w-2xl text-sm sm:text-base leading-7 text-toned">
         Version notes for LocalVoice Studio, generated from published GitHub releases with a
@@ -98,6 +113,7 @@ onMounted(() => {
         <div class="flex flex-wrap items-center gap-3">
           <span>{{ version.title }}</span>
           <UBadge
+            v-if="shouldShowTag(version)"
             color="neutral"
             variant="subtle"
             :label="version.tag"
