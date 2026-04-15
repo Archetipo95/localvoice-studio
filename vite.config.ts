@@ -4,6 +4,9 @@ import ui from "@nuxt/ui/vite";
 
 export default defineConfig({
   plugins: [vue(), ui()],
+  fmt: {
+    ignorePatterns: ["CHANGELOG.md"],
+  },
   optimizeDeps: {
     include: [
       "@nuxt/ui > prosemirror-state",
