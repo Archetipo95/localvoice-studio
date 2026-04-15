@@ -1,3 +1,9 @@
+## [1.1.2](https://github.com/Archetipo95/localvoice-studio/compare/v1.1.1...v1.1.2) (2026-04-15)
+
+### Bug Fixes
+
+* update tag format to use semantic versioning ([d22ec39](https://github.com/Archetipo95/localvoice-studio/commit/d22ec3906aabed02a2375fdea2d8577734a2697a))
+
 ## [1.1.1](https://github.com/Archetipo95/localvoice-studio/compare/localvoice-studio-v1.1.0...localvoice-studio-v1.1.1) (2026-04-15)
 
 ### Bug Fixes
