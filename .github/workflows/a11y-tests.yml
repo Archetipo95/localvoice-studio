@@ -22,7 +22,7 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.58.2-noble
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
@@ -35,7 +35,7 @@ jobs:
 
       - name: Upload Playwright artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-a11y-artifacts
           path: |

@@ -21,28 +21,28 @@
     "test:a11y": "env -u NO_COLOR playwright test --config=playwright.a11y.config.ts"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1",
+    "@huggingface/transformers": "^4.1.0",
     "@nuxt/ui": "^4.6.1",
     "kokoro-js": "^1.2.1",
     "marked": "^18.0.0",
     "phonemizer": "^1.2.1",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.2",
-    "vue": "^3.5.30",
+    "vue": "^3.5.32",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
-    "@playwright/test": "^1.58.2",
-    "@types/node": "^25.5.0",
-    "@vitejs/plugin-vue": "^6.0.5",
-    "@vitest/coverage-v8": "^4.1.1",
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vitest/coverage-v8": "^4.1.4",
     "@vue/test-utils": "^2.4.6",
-    "jsdom": "^29.0.1",
-    "typescript": "^5.9.3",
+    "jsdom": "^29.0.2",
+    "typescript": "^6.0.2",
     "vite": "^8.0.8",
-    "vite-plus": "^0.1.14",
-    "vitest": "^4.1.1",
+    "vite-plus": "^0.1.18",
+    "vitest": "^4.1.4",
     "vue-tsc": "^3.2.6"
   },
   "overrides": {
@@ -52,5 +52,5 @@
     "picomatch": "^4.0.4",
     "unhead": "2.1.13"
   },
-  "packageManager": "npm@11.12.0"
+  "packageManager": "npm@11.12.1"
 }
