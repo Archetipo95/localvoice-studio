@@ -85,6 +85,62 @@ test("app loads as a calm studio workspace in mock mode", async ({ page }) => {
   await page.locator("#close-source-panel").click();
 });
 
+test("users can navigate to the changelog page and read release notes", async ({ page }) => {
+  await page.route(
+    "https://ungh.cc/repos/Archetipo95/localvoice-studio/releases",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          releases: [
+            {
+              name: "Version 1.1.0",
+              tag: "v1.1.0",
+              publishedAt: "2026-04-15T10:00:00.000Z",
+              markdown: "## Added\n- Dedicated changelog page",
+              url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
+            },
+          ],
+        }),
+      });
+    },
+  );
+
+  await page.goto("/?mockTts=1");
+  await page.getByRole("link", { name: "Changelog" }).first().click();
+
+  await expect(page).toHaveURL(/\/changelog$/);
+  await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
+  await expect(page.getByText("Version 1.1.0")).toBeVisible();
+  await expect(page.getByText("Dedicated changelog page")).toBeVisible();
+});
+
+test("direct visits to the changelog route render the release timeline", async ({ page }) => {
+  await page.route(
+    "https://ungh.cc/repos/Archetipo95/localvoice-studio/releases",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          releases: [
+            {
+              tag: "v1.0.0",
+              publishedAt: "2026-04-14T08:30:00.000Z",
+              markdown: "Initial public changelog entry.",
+            },
+          ],
+        }),
+      });
+    },
+  );
+
+  await page.goto("/changelog");
+
+  await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
+  await expect(page.getByText("v1.0.0").first()).toBeVisible();
+  await expect(page.getByText("Initial public changelog entry.")).toBeVisible();
+});
+
 test("theme defaults to system and follows the browser color scheme", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/?mockTts=1");

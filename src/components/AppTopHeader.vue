@@ -2,10 +2,12 @@
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import type { DropdownMenuItem } from "@nuxt/ui";
+import { useRoute } from "vue-router";
 import { useUiStore } from "../stores/ui";
 
 const uiStore = useUiStore();
 const { themeMode } = storeToRefs(uiStore);
+const route = useRoute();
 
 const themes = ["system", "light", "dark"] as const;
 
@@ -27,32 +29,53 @@ const themeMenuItems = computed<DropdownMenuItem[]>(() =>
     class: themeMode.value === mode ? "font-semibold" : undefined,
   })),
 );
+
+const isChangelogRoute = computed(() => route.path === "/changelog");
 </script>
 
 <template>
   <UHeader :toggle="false">
     <template #left>
-      <div class="flex flex-col">
-        <span class="text-sm font-semibold text-highlighted">LocalVoice Studio</span>
-        <span class="text-xs text-muted">Powered by Kokoro</span>
+      <div class="flex items-center gap-4">
+        <ULink to="/" class="flex flex-col">
+          <span class="text-sm font-semibold text-highlighted">LocalVoice Studio</span>
+          <span class="text-xs text-muted">Powered by Kokoro</span>
+        </ULink>
+
+        <UBadge
+          color="neutral"
+          variant="soft"
+          :label="isChangelogRoute ? 'Changelog' : 'Studio'"
+          class="hidden sm:inline-flex"
+        />
       </div>
     </template>
 
     <template #right>
-      <UDropdownMenu
-        :items="themeMenuItems"
-        :content="{ align: 'end', side: 'bottom', sideOffset: 8 }"
-        :ui="{ content: 'z-[120] w-48' }"
-      >
+      <div class="flex items-center gap-2">
         <UButton
           color="neutral"
           variant="ghost"
           size="sm"
-          :icon="themeIcon(themeMode)"
-          trailing-icon="i-heroicons-chevron-down"
-          :label="themeLabel(themeMode)"
+          :label="isChangelogRoute ? 'Studio' : 'Changelog'"
+          :to="isChangelogRoute ? '/' : '/changelog'"
         />
-      </UDropdownMenu>
+
+        <UDropdownMenu
+          :items="themeMenuItems"
+          :content="{ align: 'end', side: 'bottom', sideOffset: 8 }"
+          :ui="{ content: 'z-[120] w-48' }"
+        >
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :icon="themeIcon(themeMode)"
+            trailing-icon="i-heroicons-chevron-down"
+            :label="themeLabel(themeMode)"
+          />
+        </UDropdownMenu>
+      </div>
     </template>
   </UHeader>
 </template>

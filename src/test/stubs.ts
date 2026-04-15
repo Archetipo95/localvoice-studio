@@ -5,6 +5,8 @@ export const APP_STUBS = {
   UFooter: {
     template: "<footer><slot /><slot name='left' /><slot name='right' /></footer>",
   },
+  ULink: { template: "<a><slot /></a>" },
+  RouterView: { template: "<div />" },
   AppTopHeader: { template: "<div />" },
   StudioSetup: { template: "<div />" },
   VoiceBlend: { template: "<div />" },

@@ -159,6 +159,8 @@ This app is static-hosting friendly. Any host that can serve the built `dist/` f
 - Cloudflare Pages
 - GitHub Pages
 
+This repository now includes a Netlify SPA fallback so direct visits to routes like `/changelog` resolve to the app shell correctly.
+
 ## Releases
 
 Releases are managed automatically from `main`.
@@ -166,6 +168,7 @@ Releases are managed automatically from `main`.
 - Release Please opens or updates a release PR when releasable changes land on `main`.
 - Merging the release PR creates a version tag, updates [`CHANGELOG.md`](./CHANGELOG.md), and publishes a GitHub Release.
 - Commit messages should follow the Conventional Commits format so release notes and version bumps stay accurate.
+- The public in-app changelog lives at `/changelog` and reads from published GitHub Releases.
 
 If you want release PRs to trigger the full GitHub Actions suite, create a fine-grained or classic PAT with repository access, store it as `RELEASE_PLEASE_TOKEN`, and point the workflow to that token. The default `GITHUB_TOKEN` works for creating release PRs and GitHub Releases, but GitHub does not trigger downstream workflows from events created by that token.
 

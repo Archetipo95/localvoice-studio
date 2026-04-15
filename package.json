@@ -1,7 +1,7 @@
 {
   "name": "localvoice-studio",
-  "private": true,
   "version": "1.0.0",
+  "private": true,
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -24,6 +24,7 @@
     "@huggingface/transformers": "^3.8.1",
     "@nuxt/ui": "^4.6.0",
     "kokoro-js": "^1.2.1",
+    "marked": "^18.0.0",
     "phonemizer": "^1.2.1",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.2",
