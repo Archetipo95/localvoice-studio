@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/Archetipo95/localvoice-studio/compare/v1.2.1...v1.3.0) (2026-04-19)
+
+### 🚀 Features
+
+* **changelog:** refactor changelog handling in components ([6e86bf6](https://github.com/Archetipo95/localvoice-studio/commit/6e86bf6697124bea99921fa8dc58484e8d7bd156))
+
 ## [1.2.1](https://github.com/Archetipo95/localvoice-studio/compare/v1.2.0...v1.2.1) (2026-04-19)
 
 ### 📚 Documentation
