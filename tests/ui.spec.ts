@@ -86,55 +86,21 @@ test("app loads as a calm studio workspace in mock mode", async ({ page }) => {
 });
 
 test("users can navigate to the changelog page and read release notes", async ({ page }) => {
-  await page.route(
-    "https://api.github.com/repos/Archetipo95/localvoice-studio/releases",
-    async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            name: "Version 1.1.0",
-            tag_name: "v1.1.0",
-            published_at: "2026-04-15T10:00:00.000Z",
-            body: "## Added\n- Dedicated changelog page",
-            html_url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
-          },
-        ]),
-      });
-    },
-  );
-
   await page.goto("/?mockTts=1");
   await page.getByRole("link", { name: "Changelog" }).first().click();
 
   await expect(page).toHaveURL(/\/changelog$/);
-  await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
-  await expect(page.getByText("Version 1.1.0")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changelog" }).first()).toBeVisible();
+  await expect(page.getByText("v1.1.0")).toBeVisible();
   await expect(page.getByText("Dedicated changelog page")).toBeVisible();
 });
 
 test("direct visits to the changelog route render the release timeline", async ({ page }) => {
-  await page.route(
-    "https://api.github.com/repos/Archetipo95/localvoice-studio/releases",
-    async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            tag_name: "v1.0.0",
-            published_at: "2026-04-14T08:30:00.000Z",
-            body: "Initial public changelog entry.",
-          },
-        ]),
-      });
-    },
-  );
-
   await page.goto("/changelog");
 
-  await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changelog" }).first()).toBeVisible();
   await expect(page.getByText("v1.0.0").first()).toBeVisible();
-  await expect(page.getByText("Initial public changelog entry.")).toBeVisible();
+  await expect(page.getByText("initial public release", { exact: false })).toBeVisible();
 });
 
 test("theme defaults to system and follows the browser color scheme", async ({ page }) => {

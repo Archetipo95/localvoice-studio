@@ -2,9 +2,9 @@
 import { computed, onMounted } from "vue";
 
 import ReleaseMarkdown from "../components/ReleaseMarkdown.vue";
-import { GITHUB_RELEASES_PAGE_URL, useGithubReleases } from "../composables/useGithubReleases";
+import { GITHUB_CHANGELOG_URL, useChangelog } from "../composables/useChangelog";
 
-const { versions, pending, error, refresh } = useGithubReleases();
+const { versions, pending, error, refresh } = useChangelog();
 
 const skeletonVersions = Array.from({ length: 3 }, (_, index) => index);
 const hasVersions = computed(() => versions.value.length > 0);
@@ -12,6 +12,20 @@ const hasVersions = computed(() => versions.value.length > 0);
 function extractVersionToken(text: string): string | null {
   const match = text.match(/v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/i);
   return match?.[1]?.toLowerCase() || null;
+}
+
+function formatVersionTitle(title: string): string {
+  const trimmedTitle = title.trim();
+
+  if (/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/i.test(trimmedTitle)) {
+    return trimmedTitle;
+  }
+
+  if (/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/i.test(trimmedTitle)) {
+    return `v${trimmedTitle}`;
+  }
+
+  return title;
 }
 
 function shouldShowTag(version: { title: string; tag: string }): boolean {
@@ -35,8 +49,8 @@ onMounted(() => {
     <section class="space-y-3">
       <h1 class="text-3xl sm:text-4xl font-semibold text-highlighted">Changelog</h1>
       <p class="max-w-2xl text-sm sm:text-base leading-7 text-toned">
-        Version notes for LocalVoice Studio, generated from published GitHub releases with a
-        cleaner, Nuxt-inspired reading experience.
+        Version notes for LocalVoice Studio, sourced directly from the repository changelog with a
+        cleaner, timeline-style reading experience.
       </p>
     </section>
 
@@ -64,7 +78,7 @@ onMounted(() => {
       color="error"
       variant="soft"
       icon="i-heroicons-exclamation-triangle"
-      title="Unable to load changelog entries right now"
+      title="Unable to load the changelog right now"
       :description="error.message"
       :actions="[
         {
@@ -74,10 +88,10 @@ onMounted(() => {
           onClick: refresh,
         },
         {
-          label: 'Open GitHub Releases',
+          label: 'Open CHANGELOG.md',
           color: 'neutral',
           variant: 'ghost',
-          to: GITHUB_RELEASES_PAGE_URL,
+          to: GITHUB_CHANGELOG_URL,
           target: '_blank',
         },
       ]"
@@ -86,14 +100,14 @@ onMounted(() => {
     <UEmpty
       v-else-if="!hasVersions"
       icon="i-heroicons-clock"
-      title="No releases published yet"
-      description="The release feed is ready. The first published GitHub release will appear here automatically."
+      title="No changelog entries available yet"
+      description="Add entries to CHANGELOG.md and they will appear here automatically."
       :actions="[
         {
-          label: 'View Releases on GitHub',
+          label: 'Open CHANGELOG.md',
           color: 'neutral',
           variant: 'soft',
-          to: GITHUB_RELEASES_PAGE_URL,
+          to: GITHUB_CHANGELOG_URL,
           target: '_blank',
         },
       ]"
@@ -110,8 +124,10 @@ onMounted(() => {
       }"
     >
       <template #title="{ version }">
-        <div class="flex flex-wrap items-center gap-3">
-          <span>{{ version.title }}</span>
+        <div class="flex flex-wrap items-center gap-3 leading-none">
+          <span class="text-lg font-semibold tracking-tight text-highlighted sm:text-xl">
+            {{ formatVersionTitle(version.title) }}
+          </span>
           <UBadge
             v-if="shouldShowTag(version)"
             color="neutral"
@@ -123,14 +139,16 @@ onMounted(() => {
       </template>
 
       <template #body="{ version }">
-        <div class="space-y-4">
+        <div
+          class="mt-2 space-y-5 rounded-2xl border border-default/70 bg-default/35 p-5 shadow-sm ring-1 ring-default/40 sm:mt-3 sm:p-6"
+        >
           <ReleaseMarkdown
             v-if="version.markdown"
             :value="version.markdown"
-            class="border-t border-default/60 pt-4"
+            class="release-markdown-card"
           />
 
-          <div class="flex justify-start">
+          <div v-if="version.url" class="flex justify-start">
             <UButton
               color="neutral"
               variant="ghost"

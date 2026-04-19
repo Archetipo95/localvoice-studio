@@ -62,43 +62,43 @@
           "types": [
             {
               "type": "feat",
-              "section": "Features"
+              "section": "🚀 Features"
             },
             {
               "type": "fix",
-              "section": "Bug Fixes"
+              "section": "🩹 Bug Fixes"
             },
             {
               "type": "perf",
-              "section": "Performance"
+              "section": "⚡️ Performance"
             },
             {
               "type": "deps",
-              "section": "Dependencies"
+              "section": "📦 Dependencies"
             },
             {
               "type": "chore",
-              "section": "Chores"
+              "section": "🏡 Chores"
             },
             {
               "type": "ci",
-              "section": "CI"
+              "section": "📦 CI"
             },
             {
               "type": "docs",
-              "section": "Documentation"
+              "section": "📚 Documentation"
             },
             {
               "type": "refactor",
-              "section": "Refactoring"
+              "section": "🔧 Refactoring"
             },
             {
               "type": "test",
-              "section": "Tests"
+              "section": "🧪 Tests"
             },
             {
               "type": "revert",
-              "section": "Reverts"
+              "section": "🔄 Reverts"
             }
           ]
         }

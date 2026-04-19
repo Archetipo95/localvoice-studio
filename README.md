@@ -168,7 +168,7 @@ Releases are managed automatically from `main`.
 - `semantic-release` runs on each push to `main` and publishes a release when it detects releasable commits.
 - The release flow updates [`CHANGELOG.md`](./CHANGELOG.md), bumps `package.json`/`package-lock.json`, creates a version tag, and publishes a GitHub Release.
 - Commit messages should follow the Conventional Commits format so release notes and version bumps stay accurate.
-- The public in-app changelog lives at `/changelog` and reads from published GitHub Releases.
+- The public in-app changelog lives at `/changelog` and reads directly from [`CHANGELOG.md`](./CHANGELOG.md).
 
 Release impact by commit type:
 

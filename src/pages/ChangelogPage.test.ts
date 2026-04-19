@@ -8,9 +8,9 @@ const pending = ref(false);
 const error = ref<Error | null>(null);
 const refresh = vi.fn();
 
-vi.mock("../composables/useGithubReleases", () => ({
-  GITHUB_RELEASES_PAGE_URL: "https://github.com/Archetipo95/localvoice-studio/releases",
-  useGithubReleases: () => ({
+vi.mock("../composables/useChangelog", () => ({
+  GITHUB_CHANGELOG_URL: "https://github.com/Archetipo95/localvoice-studio/blob/main/CHANGELOG.md",
+  useChangelog: () => ({
     versions,
     pending,
     error,
@@ -65,18 +65,18 @@ describe("ChangelogPage", () => {
     expect(wrapper.find("[aria-busy='true']").exists()).toBe(true);
   });
 
-  it("shows an empty state when no releases are published yet", async () => {
+  it("shows an empty state when no changelog entries are available", async () => {
     const wrapper = await mountPage();
 
-    expect(wrapper.text()).toContain("No releases published yet");
+    expect(wrapper.text()).toContain("No changelog entries available yet");
   });
 
-  it("shows an error state when the feed fails", async () => {
+  it("shows an error state when changelog loading fails", async () => {
     error.value = new Error("Feed unavailable");
 
     const wrapper = await mountPage();
 
-    expect(wrapper.text()).toContain("Unable to load changelog entries right now");
+    expect(wrapper.text()).toContain("Unable to load the changelog right now");
     expect(wrapper.text()).toContain("Feed unavailable");
   });
 
@@ -87,7 +87,7 @@ describe("ChangelogPage", () => {
         title: "Spring polish",
         date: "2026-04-15T10:00:00.000Z",
         markdown: "## Added\n- Dedicated changelog page",
-        url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
+        url: "https://github.com/Archetipo95/localvoice-studio/compare/v1.0.0...v1.1.0",
       },
     ];
 
@@ -106,13 +106,32 @@ describe("ChangelogPage", () => {
         title: "1.1.0",
         date: "2026-04-15T10:00:00.000Z",
         markdown: "## Added\n- Dedicated changelog page",
-        url: "https://github.com/Archetipo95/localvoice-studio/releases/tag/v1.1.0",
+        url: "https://github.com/Archetipo95/localvoice-studio/compare/v1.0.0...v1.1.0",
       },
     ];
 
     const wrapper = await mountPage();
 
-    expect(wrapper.text()).not.toContain("v1.1.0");
-    expect(wrapper.text()).toContain("1.1.0");
+    const renderedText = wrapper.text();
+
+    expect(renderedText).toContain("v1.1.0");
+    expect(renderedText.match(/v1\.1\.0/g)).toHaveLength(1);
+  });
+
+  it("omits the GitHub button when an entry has no external link", async () => {
+    versions.value = [
+      {
+        tag: "v1.0.0",
+        title: "1.0.0",
+        date: "2026-03-24",
+        markdown: "Initial public release",
+      },
+    ];
+
+    const wrapper = await mountPage();
+
+    expect(wrapper.text()).toContain("Initial public release");
+    expect(wrapper.text()).toContain("v1.0.0");
+    expect(wrapper.text()).not.toContain("View on GitHub");
   });
 });

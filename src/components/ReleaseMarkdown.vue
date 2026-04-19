@@ -16,7 +16,7 @@ const renderedMarkdown = computed(() => marked.parse(props.value || ""));
 
 <template>
   <div
-    class="release-markdown prose prose-sm max-w-none text-toned prose-headings:text-highlighted prose-strong:text-highlighted prose-a:text-primary hover:prose-a:text-primary/80"
+    class="release-markdown max-w-none text-[0.96rem] leading-7 text-toned prose-headings:text-highlighted prose-strong:text-highlighted prose-a:text-primary hover:prose-a:text-primary/80"
     v-html="renderedMarkdown"
   />
 </template>

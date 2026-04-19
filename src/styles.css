@@ -109,3 +109,85 @@ button[aria-disabled="true"] {
   color: inherit;
   text-decoration: inherit;
 }
+
+.release-markdown > :first-child {
+  margin-top: 0;
+}
+
+.release-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.release-markdown p {
+  margin: 0;
+  line-height: 1.75;
+}
+
+.release-markdown p + p {
+  margin-top: 0.95rem;
+}
+
+.release-markdown h2,
+.release-markdown h3,
+.release-markdown h4 {
+  margin: 1.4rem 0 0.85rem;
+  color: var(--ui-text-highlighted);
+  line-height: 1.2;
+}
+
+.release-markdown h2 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.release-markdown h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 1.6rem;
+  border: 1px solid color-mix(in oklab, var(--ui-border) 72%, transparent);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--ui-bg-elevated) 82%, var(--ui-primary) 4%);
+  padding: 0.38rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.release-markdown h3 + ul,
+.release-markdown h3 + ol,
+.release-markdown h4 + ul,
+.release-markdown h4 + ol {
+  margin-top: 0.9rem;
+}
+
+.release-markdown ul,
+.release-markdown ol {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.release-markdown li {
+  margin: 0.55rem 0;
+  padding-left: 0.2rem;
+  line-height: 1.65;
+}
+
+.release-markdown li::marker {
+  color: color-mix(in oklab, var(--ui-text) 45%, var(--ui-primary) 40%);
+}
+
+.release-markdown ul + h2,
+.release-markdown ul + h3,
+.release-markdown ol + h2,
+.release-markdown ol + h3 {
+  margin-top: 1.7rem;
+}
+
+.release-markdown code {
+  border-radius: 0.45rem;
+  background: color-mix(in oklab, var(--ui-bg-elevated) 78%, transparent);
+  padding: 0.12rem 0.38rem;
+  font-size: 0.86em;
+}
