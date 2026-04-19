@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/Archetipo95/localvoice-studio/compare/v1.2.0...v1.2.1) (2026-04-19)
+
+### Documentation
+
+* **changelog:** enhance formatting with emoji headings and improve section clarity ([5259d97](https://github.com/Archetipo95/localvoice-studio/commit/5259d972b5e2ef74e9e13056f50841eb4da8088d))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
