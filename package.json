@@ -25,7 +25,7 @@
     "@huggingface/transformers": "^4.1.0",
     "@nuxt/ui": "^4.6.1",
     "kokoro-js": "^1.2.1",
-    "marked": "^18.0.0",
+    "marked": "^18.0.3",
     "phonemizer": "^1.2.1",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.2",
