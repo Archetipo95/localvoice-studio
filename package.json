@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^4.1.0",
-    "@nuxt/ui": "^4.6.1",
+    "@nuxt/ui": "^4.7.1",
     "kokoro-js": "^1.2.1",
     "marked": "^18.0.0",
     "phonemizer": "^1.2.1",
