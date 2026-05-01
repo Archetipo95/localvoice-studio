@@ -52,7 +52,7 @@
     "vite": "^8.0.8",
     "vite-plus": "^0.1.18",
     "vitest": "^4.1.4",
-    "vue-tsc": "^3.2.6"
+    "vue-tsc": "^3.2.7"
   },
   "overrides": {
     "@unhead/vue": "2.1.13",
