@@ -49,6 +49,8 @@ export const generationStartAt = ref<number | null>(null);
 export const lastGenerationDurationMs = ref<number | null>(null);
 
 const HISTORY_FILE_PREVIEW_LENGTH = 96;
+const MIN_SPEED = 0.5;
+const MAX_SPEED = 2;
 const DEFAULT_PREVIEW_OPTIONS = {
   speed: 1,
   pitchSemitones: 0,
@@ -74,6 +76,52 @@ const pendingPronunciationPreviewRequests = new Map<
   }
 >();
 let pronunciationPreviewAudio: HTMLAudioElement | null = null;
+
+function normalizeSpeed(speed: number): number {
+  if (!Number.isFinite(speed)) {
+    return 1;
+  }
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, speed));
+}
+
+function normalizeSecondaryRatio(secondaryRatio: number): number {
+  if (!Number.isFinite(secondaryRatio)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, secondaryRatio));
+}
+
+function normalizeGenerateRequest(request: GenerateRequest): GenerateRequest {
+  return {
+    ...request,
+    voice: request.voice.trim(),
+    secondaryVoice: request.secondaryVoice.trim(),
+    secondaryRatio: normalizeSecondaryRatio(request.secondaryRatio),
+    speed: normalizeSpeed(request.speed),
+  };
+}
+
+function normalizePreviewRequest(request: GeneratePreviewRequest): GeneratePreviewRequest {
+  return {
+    ...request,
+    voice: request.voice.trim(),
+    secondaryVoice: request.secondaryVoice?.trim(),
+    secondaryRatio: normalizeSecondaryRatio(request.secondaryRatio ?? 0),
+    speed: normalizeSpeed(request.speed),
+  };
+}
+
+function normalizePronunciationPreviewRequest(
+  request: GeneratePronunciationPreviewRequest,
+): GeneratePronunciationPreviewRequest {
+  return {
+    ...request,
+    voice: request.voice.trim(),
+    secondaryVoice: request.secondaryVoice?.trim(),
+    secondaryRatio: normalizeSecondaryRatio(request.secondaryRatio ?? 0),
+    speed: normalizeSpeed(request.speed),
+  };
+}
 
 function startElapsedTimer() {
   generationStartAt.value = Date.now();
@@ -308,8 +356,15 @@ export function initWorker() {
 
 export function generateAudio(request: GenerateRequest): boolean {
   const gen = useGenerationStore();
-  if (!request.text.trim()) {
+  const normalizedRequest = normalizeGenerateRequest(request);
+
+  if (!normalizedRequest.text.trim()) {
     gen.setError("Text is required.");
+    return false;
+  }
+
+  if (!normalizedRequest.voice) {
+    gen.setError("A voice must be selected.");
     return false;
   }
 
@@ -318,11 +373,11 @@ export function generateAudio(request: GenerateRequest): boolean {
     return false;
   }
 
-  pendingGenerateRequest = request;
+  pendingGenerateRequest = normalizedRequest;
   startElapsedTimer();
   gen.clearError();
   gen.startGeneration();
-  worker.value.postMessage(request);
+  worker.value.postMessage(normalizedRequest);
   return true;
 }
 
@@ -360,7 +415,7 @@ export function requestPreviews() {
   gen.startPreview();
 
   const finalOptions = {
-    speed: voice.speed,
+    speed: normalizeSpeed(voice.speed),
     pitchSemitones: voice.pitchSemitones,
     sentencePauseMs: voice.pauses.sentence.value,
     newlinePauseMs: voice.pauses.newline.value,
@@ -419,19 +474,20 @@ export function requestPreviews() {
   }
 
   const requestPreview = async (request: GeneratePreviewRequest) => {
-    const cached = await loadPreviewFromCache(request.previewId);
+    const normalizedRequest = normalizePreviewRequest(request);
+    const cached = await loadPreviewFromCache(normalizedRequest.previewId);
     if (cached) {
-      completePreview(request.previewId, gen);
+      completePreview(normalizedRequest.previewId, gen);
       return;
     }
 
     if (worker.value) {
-      worker.value.postMessage(request);
+      worker.value.postMessage(normalizedRequest);
       return;
     }
 
     // No worker available; avoid leaving preview phase stuck.
-    completePreview(request.previewId, gen);
+    completePreview(normalizedRequest.previewId, gen);
   };
 
   for (const request of requests) {
@@ -467,7 +523,7 @@ function buildPronunciationRequest(options: {
 }): GeneratePronunciationPreviewRequest {
   const gen = useGenerationStore();
 
-  return {
+  return normalizePronunciationPreviewRequest({
     type: "generate-pronunciation-preview",
     previewId: buildPronunciationPreviewId({
       modelId: gen.model.modelId,
@@ -490,7 +546,7 @@ function buildPronunciationRequest(options: {
     sentencePauseMs: options.sentencePauseMs,
     newlinePauseMs: options.newlinePauseMs,
     paragraphPauseMs: options.paragraphPauseMs,
-  };
+  });
 }
 
 export function buildCurrentPronunciationPreviewRequest(markup: string) {

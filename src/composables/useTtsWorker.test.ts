@@ -6,7 +6,7 @@ describe("useTtsWorker", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
-    window.localStorage.clear();
+    window.localStorage?.clear();
     window.history.replaceState({}, "", "/");
   });
 
@@ -122,6 +122,102 @@ describe("useTtsWorker", () => {
 
     expect(generation.activityPhase).toBe("preview-loading");
     expect(posted.some((message) => message.type === "generate-preview")).toBe(true);
+  });
+
+  it("normalizes invalid speed values before dispatching worker requests", async () => {
+    const posted: Array<any> = [];
+
+    class MockWorker {
+      postMessage(message: any) {
+        posted.push(message);
+      }
+
+      addEventListener() {}
+      terminate() {}
+    }
+
+    Object.defineProperty(globalThis, "Worker", {
+      value: MockWorker,
+      configurable: true,
+      writable: true,
+    });
+
+    vi.doMock("./usePreviewCache", () => ({
+      previewAudioUrls: ref(new Map()),
+      previewAudioSamples: shallowRef(new Map()),
+      buildVoicePreviewId: ({ voice }: { voice: string }) => `voice:${voice}`,
+      buildMixPreviewId: ({ voice, secondaryVoice }: { voice: string; secondaryVoice: string }) =>
+        `mix:${voice}|${secondaryVoice}`,
+      buildPronunciationPreviewId: ({ markup }: { markup: string }) => `pronunciation:${markup}`,
+      storePreviewResult: vi.fn(async () => undefined),
+      loadPreviewFromCache: vi.fn(async () => null),
+      clearPreviewCache: vi.fn(),
+      deletePreviewCacheStorage: vi.fn(async () => true),
+      revokeBlobUrl: vi.fn(),
+    }));
+
+    vi.doMock("./useGenerationHistory", () => ({
+      generationHistory: ref([]),
+      latestExportMetadata: ref(null),
+      latestOutputSamples: ref(null),
+      latestOutputHz: ref(null),
+      appendHistoryItem: vi.fn(() => null),
+      persistHistoryAudioToCache: vi.fn(async () => undefined),
+      clearGenerationHistory: vi.fn(async () => undefined),
+      isHistoryAudioUrl: vi.fn(() => false),
+      renameHistoryOutput: vi.fn(),
+      removeHistoryOutput: vi.fn(async () => undefined),
+      setLatestOutput: vi.fn(),
+      clearLatestOutput: vi.fn(),
+    }));
+
+    const mod = await import("./useTtsWorker");
+    const { useGenerationStore } = await import("../stores/generation");
+    const { useVoiceStore } = await import("../stores/voice");
+
+    const generation = useGenerationStore();
+    const voice = useVoiceStore();
+
+    generation.status = "ready";
+    generation.activityPhase = "idle";
+    generation.device = "webgpu";
+    voice.selectedVoice = "af_heart";
+    voice.secondaryVoice = "am_michael";
+    voice.secondaryRatio = 35;
+    voice.speed = 99;
+
+    mod.startWorker(mod.buildInitMessage());
+
+    mod.generateAudio({
+      type: "generate",
+      text: "Hello",
+      voice: " af_heart ",
+      secondaryVoice: " __none__ ",
+      secondaryRatio: 0,
+      speed: Number.NaN,
+      pitchSemitones: 0,
+      sentencePauseMs: 150,
+      newlinePauseMs: 225,
+      paragraphPauseMs: 325,
+      fileName: "out.wav",
+    });
+
+    generation.status = "ready";
+    generation.activityPhase = "idle";
+    mod.requestPreviews();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const generateMessage = posted.find((message) => message.type === "generate");
+    expect(generateMessage?.speed).toBe(1);
+    expect(generateMessage?.voice).toBe("af_heart");
+    expect(generateMessage?.secondaryVoice).toBe("__none__");
+
+    const previewMessages = posted.filter((message) => message.type === "generate-preview");
+    expect(previewMessages.length).toBeGreaterThan(0);
+    expect(previewMessages.every((message) => message.speed <= 2 && message.speed >= 0.5)).toBe(
+      true,
+    );
   });
 
   it("rejects generation when text is empty or whitespace", async () => {
