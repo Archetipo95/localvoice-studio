@@ -111,7 +111,7 @@ describe("ScriptEditorPanel", () => {
     expect(emissions?.at(-1)).toEqual(["Say [Kokoro](/kˈoʊkəɹoʊ/)."]);
   });
 
-  it("preserves annotation markup when previewing a selected range", async () => {
+  it("keeps annotation markup unchanged in selected previews", async () => {
     vi.resetModules();
     const playPronunciationPreview = vi.fn().mockResolvedValue(undefined);
     vi.doMock("../composables/useTtsWorker", () => ({

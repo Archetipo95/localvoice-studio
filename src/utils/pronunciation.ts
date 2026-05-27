@@ -4,6 +4,20 @@ export type SpeechMarkupSegment =
   | { type: "stress"; value: string; label: string; level: -2 | -1 | 1 | 2 }
   | { type: "break"; value: string; label: string; pauseMs: number };
 
+export type PhonemizableSegment = Exclude<SpeechMarkupSegment, { type: "break" }>;
+
+export function assertPhonemizableSegments(
+  segments: SpeechMarkupSegment[],
+): asserts segments is PhonemizableSegment[] {
+  for (const segment of segments) {
+    if (segment.type === "break") {
+      throw new Error(
+        "phonemization received a break segment; break markup must be stripped by splitTextForSynthesis before reaching the phonemizer.",
+      );
+    }
+  }
+}
+
 const SPEECH_MARKUP_PATTERN = /\[([^\]]*)\]\((\/[^)]*\/|[+-][12]|break:\d+)\)/g;
 const PRONUNCIATION_MARKUP_PATTERN = /\[([^\]]*)\]\((\/[^)]*\/)\)/g;
 const VOWEL_OR_STRESSABLE_PATTERN = /[aəeɛɪiɔoʊuʌæɑɚɝɒœøyɨɐɜɞɯʉʏɶ]/i;

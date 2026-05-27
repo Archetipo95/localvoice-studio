@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyStressLevel,
+  assertPhonemizableSegments,
   findPronunciationMarkupTokens,
   hasSpeechMarkup,
   parseSpeechMarkup,
@@ -107,5 +108,15 @@ describe("speech markup helpers", () => {
         to: 8,
       },
     ]);
+  });
+
+  it("accepts segment lists without break markup as phonemizable", () => {
+    const segments = parseSpeechMarkup("Use [stewardship](/stjuːɚdʃɪp/) wisely.");
+    expect(() => assertPhonemizableSegments(segments)).not.toThrow();
+  });
+
+  it("throws when break segments reach phonemization", () => {
+    const segments = parseSpeechMarkup("Hold [pause](break:500) then go.");
+    expect(() => assertPhonemizableSegments(segments)).toThrow(/break segment/);
   });
 });

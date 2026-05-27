@@ -8,7 +8,11 @@ import { mergeAudioChunks, pitchShiftAudio } from "../utils/audio";
 import { splitTextForSynthesis } from "../utils/long-text";
 import { NO_BLEND_VOICE, blendRatioParts } from "../utils/mix";
 import { DEFAULT_MODEL } from "../config/model-config";
-import { applyStressLevel, parseSpeechMarkup } from "../utils/pronunciation";
+import {
+  applyStressLevel,
+  assertPhonemizableSegments,
+  parseSpeechMarkup,
+} from "../utils/pronunciation";
 import { sortVoicesByGrade } from "../utils/voices";
 import type {
   GenerateRequest,
@@ -742,23 +746,25 @@ function normalizeText(text: string): string {
 async function phonemizeText(text: string, voiceGroup: "a" | "b"): Promise<string> {
   const language = voiceGroup === "a" ? "en-us" : "en-gb";
   const segments = parseSpeechMarkup(text);
+  assertPhonemizableSegments(segments);
+
   const joined = (
     await Promise.all(
       segments.map(async (segment) => {
-        if (segment.type === "text") {
-          return phonemizePlainText(segment.value, language);
+        switch (segment.type) {
+          case "text":
+            return phonemizePlainText(segment.value, language);
+          case "phoneme":
+            return segment.value;
+          case "stress": {
+            const phonemized = await phonemizePlainText(segment.value, language);
+            return applyStressLevel(phonemized, segment.level);
+          }
+          default: {
+            const exhaustiveCheck: never = segment;
+            return exhaustiveCheck;
+          }
         }
-
-        if (segment.type === "phoneme") {
-          return segment.value;
-        }
-
-        if (segment.type === "break") {
-          return phonemizePlainText(segment.value, language);
-        }
-
-        const phonemized = await phonemizePlainText(segment.value, language);
-        return applyStressLevel(phonemized, segment.level);
       }),
     )
   ).join("");
