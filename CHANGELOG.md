@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/Archetipo95/localvoice-studio/compare/v1.3.0...v1.3.1) (2026-05-29)
+
+### 🩹 Bug Fixes
+
+* prevent pause labels from being spoken during synthesis ([01b4268](https://github.com/Archetipo95/localvoice-studio/commit/01b4268bd46778234c076a46d7586bec08d78f00))
+* **tts-worker:** harden model inputs and add safe synthesis fallback ([fe3c7a3](https://github.com/Archetipo95/localvoice-studio/commit/fe3c7a35976b88e4cfacfeb18b8b7b094670cdd2))
+
 ## [1.3.0](https://github.com/Archetipo95/localvoice-studio/compare/v1.2.1...v1.3.0) (2026-04-19)
 
 ### 🚀 Features
