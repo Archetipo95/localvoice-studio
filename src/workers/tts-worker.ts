@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { Tensor } from "@huggingface/transformers";
+import type { Tensor } from "@huggingface/transformers";
 import { KokoroTTS } from "kokoro-js";
 import { phonemize } from "phonemizer";
 
@@ -8,7 +8,11 @@ import { mergeAudioChunks, pitchShiftAudio } from "../utils/audio";
 import { splitTextForSynthesis } from "../utils/long-text";
 import { NO_BLEND_VOICE, blendRatioParts } from "../utils/mix";
 import { DEFAULT_MODEL } from "../config/model-config";
-import { applyStressLevel, parseSpeechMarkup } from "../utils/pronunciation";
+import {
+  applyStressLevel,
+  assertPhonemizableSegments,
+  parseSpeechMarkup,
+} from "../utils/pronunciation";
 import { sortVoicesByGrade } from "../utils/voices";
 import type {
   GenerateRequest,
@@ -27,6 +31,10 @@ type KokoroInstance = Awaited<ReturnType<typeof KokoroTTS.from_pretrained>>;
 
 const VOICE_CACHE = new Map<string, Float32Array>();
 const PUNCTUATION = ';:,.!?¡¿—…"«»“”(){}[]';
+const STYLE_VECTOR_SIZE = 256;
+const MAX_STYLE_INDEX = 509;
+const MIN_SPEED = 0.5;
+const MAX_SPEED = 2;
 const PUNCTUATION_PATTERN = new RegExp(
   `(\\s*[${PUNCTUATION.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}]+\\s*)+`,
   "g",
@@ -305,16 +313,22 @@ async function generateAudio(
 }
 
 async function generateChunkAudio(tts: KokoroInstance, text: string, message: GenerateRequest) {
+  const primaryVoice = message.voice.trim();
+  if (!primaryVoice) {
+    throw new Error("A primary voice is required for synthesis.");
+  }
+
   const secondaryVoice =
     message.secondaryVoice === NO_BLEND_VOICE ? "" : message.secondaryVoice.trim();
-  const phonemes = await phonemizeText(normalizeText(text), validateVoiceGroup(message.voice));
+  const phonemes = await phonemizeText(normalizeText(text), validateVoiceGroup(primaryVoice));
   const { input_ids } = tts.tokenizer(phonemes, { truncation: true });
   const inputIds = input_ids as Tensor;
 
   try {
     const pitchSemitones = Number.isFinite(message.pitchSemitones) ? message.pitchSemitones : 0;
-    if (!secondaryVoice || secondaryVoice === message.voice || message.secondaryRatio <= 0) {
-      const generated = await generateFromIds(tts, inputIds, message.voice, message.speed);
+    const speedValue = normalizeSynthesisSpeed(message.speed);
+    if (!secondaryVoice || secondaryVoice === primaryVoice || message.secondaryRatio <= 0) {
+      const generated = await generateFromIds(tts, inputIds, primaryVoice, speedValue);
       return {
         ...generated,
         audio:
@@ -322,18 +336,28 @@ async function generateChunkAudio(tts: KokoroInstance, text: string, message: Ge
       };
     }
 
-    const style = await buildMixedStyle(
-      inputIds,
-      message.voice,
-      secondaryVoice,
-      message.secondaryRatio,
-    );
-    const generated = await generateWithStyle(tts, inputIds, style, message.speed);
-    return {
-      ...generated,
-      audio:
-        pitchSemitones === 0 ? generated.audio : pitchShiftAudio(generated.audio, pitchSemitones),
-    };
+    try {
+      const style = await buildMixedStyle(
+        inputIds,
+        primaryVoice,
+        secondaryVoice,
+        message.secondaryRatio,
+      );
+      const generated = await generateWithStyle(tts, inputIds, style, speedValue);
+      return {
+        ...generated,
+        audio:
+          pitchSemitones === 0 ? generated.audio : pitchShiftAudio(generated.audio, pitchSemitones),
+      };
+    } catch {
+      // If mixed-style inference fails, preserve usability by falling back to the primary voice path.
+      const generated = await generateFromIds(tts, inputIds, primaryVoice, speedValue);
+      return {
+        ...generated,
+        audio:
+          pitchSemitones === 0 ? generated.audio : pitchShiftAudio(generated.audio, pitchSemitones),
+      };
+    }
   } finally {
     inputIds.dispose();
   }
@@ -530,17 +554,17 @@ async function buildMixedStyle(
   const { primaryParts, secondaryParts } = blendRatioParts(secondaryRatio);
   const primaryStyle = await getStyleVector(primaryVoice, inputIds);
   if (secondaryParts === 0) {
-    return new Tensor("float32", primaryStyle, [1, 256]);
+    return createCompatibleTensor(inputIds, "float32", primaryStyle, [1, STYLE_VECTOR_SIZE]);
   }
 
   const secondaryStyle = await getStyleVector(secondaryVoice, inputIds);
-  const mixed = new Float32Array(256);
+  const mixed = new Float32Array(STYLE_VECTOR_SIZE);
   for (let index = 0; index < mixed.length; index += 1) {
     mixed[index] =
       ((primaryStyle[index] ?? 0) * primaryParts + (secondaryStyle[index] ?? 0) * secondaryParts) /
       20;
   }
-  return new Tensor("float32", mixed, [1, 256]);
+  return createCompatibleTensor(inputIds, "float32", mixed, [1, STYLE_VECTOR_SIZE]);
 }
 
 async function generateFromIds(
@@ -549,8 +573,15 @@ async function generateFromIds(
   voice: string,
   speedValue: number,
 ): Promise<{ audio: Float32Array; sampling_rate: number }> {
-  const primaryStyle = await getStyleTensor(voice, inputIds);
-  return generateWithStyle(tts, inputIds, primaryStyle, speedValue);
+  const generated = await tts.generate_from_ids(inputIds, {
+    voice: voice as never,
+    speed: normalizeSynthesisSpeed(speedValue),
+  });
+
+  return {
+    audio: new Float32Array(generated.audio),
+    sampling_rate: generated.sampling_rate,
+  };
 }
 
 async function generateWithStyle(
@@ -559,9 +590,15 @@ async function generateWithStyle(
   style: Tensor,
   speedValue: number,
 ): Promise<{ audio: Float32Array; sampling_rate: number }> {
-  const speed = new Tensor("float32", [speedValue], [1]);
+  const speed = createCompatibleTensor(
+    style,
+    "float32",
+    [normalizeSynthesisSpeed(speedValue)],
+    [1],
+  );
 
   try {
+    validateModelInputs(inputIds, style, speed);
     const { waveform } = await tts.model({ input_ids: inputIds, style, speed });
 
     try {
@@ -578,15 +615,21 @@ async function generateWithStyle(
   }
 }
 
-async function getStyleTensor(voice: string, inputIds: Tensor): Promise<Tensor> {
-  const styleVector = await getStyleVector(voice, inputIds);
-  return new Tensor("float32", styleVector, [1, 256]);
-}
-
 async function getStyleVector(voice: string, inputIds: Tensor): Promise<Float32Array> {
   const buffer = await loadVoiceBuffer(voice);
-  const offset = 256 * Math.min(Math.max((inputIds.dims.at(-1) ?? 2) - 2, 0), 509);
-  return buffer.slice(offset, offset + 256);
+  const tokenCount = inputIds.dims.at(-1);
+  const normalizedTokenCount = normalizeTensorDimension(tokenCount, 2) ?? 2;
+  const styleIndex = Math.min(Math.max(normalizedTokenCount - 2, 0), MAX_STYLE_INDEX);
+  const offset = STYLE_VECTOR_SIZE * styleIndex;
+  const styleVector = buffer.slice(offset, offset + STYLE_VECTOR_SIZE);
+
+  if (styleVector.length !== STYLE_VECTOR_SIZE) {
+    throw new Error(
+      `Voice style data is incomplete for "${voice}" (expected ${STYLE_VECTOR_SIZE} values, got ${styleVector.length}).`,
+    );
+  }
+
+  return styleVector;
 }
 
 async function loadVoiceBuffer(voice: string): Promise<Float32Array> {
@@ -637,6 +680,65 @@ function validateVoiceGroup(voice: string): "a" | "b" {
   return voice[0] as "a" | "b";
 }
 
+function normalizeSynthesisSpeed(speed: number): number {
+  if (!Number.isFinite(speed)) {
+    return 1;
+  }
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, speed));
+}
+
+function validateModelInputs(inputIds: Tensor, style: Tensor, speed: Tensor): void {
+  const inputLength = normalizeTensorDimension(inputIds.dims.at(-1));
+  if (inputLength === null || inputLength <= 0) {
+    throw new Error("Model input_ids are invalid or empty.");
+  }
+
+  const styleDim0 = normalizeTensorDimension(style.dims[0]);
+  const styleDim1 = normalizeTensorDimension(style.dims[1]);
+  if (style.dims.length !== 2 || styleDim0 !== 1 || styleDim1 !== STYLE_VECTOR_SIZE) {
+    throw new Error(
+      `Model style input has invalid shape [${style.dims.join(", ")}], expected [1, ${STYLE_VECTOR_SIZE}].`,
+    );
+  }
+
+  const speedDim0 = normalizeTensorDimension(speed.dims[0]);
+  if (speed.dims.length !== 1 || speedDim0 !== 1) {
+    throw new Error(
+      `Model speed input has invalid shape [${speed.dims.join(", ")}], expected [1].`,
+    );
+  }
+}
+
+function normalizeTensorDimension(value: unknown, fallback: number | null = null): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  if (typeof value === "bigint") {
+    return value >= 0n ? Number(value) : fallback;
+  }
+
+  return fallback;
+}
+
+function createCompatibleTensor(
+  reference: Tensor,
+  type: string,
+  data: Float32Array | number[],
+  dims: number[],
+): Tensor {
+  const constructorRef = (reference as { constructor: unknown }).constructor;
+  if (typeof constructorRef !== "function") {
+    throw new Error("Unable to create tensor: missing runtime tensor constructor.");
+  }
+
+  return new (constructorRef as new (
+    dtype: string,
+    values: Float32Array | number[],
+    shape: number[],
+  ) => Tensor)(type, data, dims);
+}
+
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
@@ -644,23 +746,25 @@ function normalizeText(text: string): string {
 async function phonemizeText(text: string, voiceGroup: "a" | "b"): Promise<string> {
   const language = voiceGroup === "a" ? "en-us" : "en-gb";
   const segments = parseSpeechMarkup(text);
+  assertPhonemizableSegments(segments);
+
   const joined = (
     await Promise.all(
       segments.map(async (segment) => {
-        if (segment.type === "text") {
-          return phonemizePlainText(segment.value, language);
+        switch (segment.type) {
+          case "text":
+            return phonemizePlainText(segment.value, language);
+          case "phoneme":
+            return segment.value;
+          case "stress": {
+            const phonemized = await phonemizePlainText(segment.value, language);
+            return applyStressLevel(phonemized, segment.level);
+          }
+          default: {
+            const exhaustiveCheck: never = segment;
+            return exhaustiveCheck;
+          }
         }
-
-        if (segment.type === "phoneme") {
-          return segment.value;
-        }
-
-        if (segment.type === "break") {
-          return phonemizePlainText(segment.value, language);
-        }
-
-        const phonemized = await phonemizePlainText(segment.value, language);
-        return applyStressLevel(phonemized, segment.level);
       }),
     )
   ).join("");

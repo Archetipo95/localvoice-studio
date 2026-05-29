@@ -75,9 +75,9 @@ describe("splitTextForSynthesis", () => {
     ]);
   });
 
-  it("turns inline break markup into explicit chunk pauses", () => {
+  it("turns inline break markup into explicit chunk pauses without speaking labels", () => {
     expect(splitTextForSynthesis("First [pause here](break:500) second.")).toEqual([
-      { text: "First pause here", pauseAfterMs: 500 },
+      { text: "First", pauseAfterMs: 500 },
       { text: "second.", pauseAfterMs: 0 },
     ]);
   });
@@ -133,15 +133,14 @@ describe("splitTextForSynthesis", () => {
     ]);
   });
 
-  it("creates a new chunk when break label cannot fit into the previous chunk", () => {
-    const chunks = splitTextForSynthesis("word [verylonglabel](break:500)", {
+  it("handles break markup with long labels without speaking them", () => {
+    const chunks = splitTextForSynthesis("word [verylonglabel](break:500) next", {
       maxChunkLength: 8,
     });
 
     expect(chunks).toEqual([
-      { text: "word", pauseAfterMs: 0 },
-      { text: "verylong", pauseAfterMs: 150 },
-      { text: "label", pauseAfterMs: 0 },
+      { text: "word", pauseAfterMs: 500 },
+      { text: "next", pauseAfterMs: 0 },
     ]);
   });
 
@@ -166,5 +165,18 @@ End test`;
       .trim();
 
     expect(reconstructed).toBe(text.replace(/\s+/g, " ").trim());
+  });
+
+  it("ensures break labels never leak into synthesized text chunks", () => {
+    const chunks = splitTextForSynthesis(
+      "Say [pause label here](break:500) then speak this [another label](break:300) and finally done.",
+    );
+
+    const allText = chunks.map((c) => c.text).join(" ");
+    expect(allText).not.toContain("pause label");
+    expect(allText).not.toContain("another label");
+    expect(allText).toContain("Say");
+    expect(allText).toContain("speak this");
+    expect(allText).toContain("finally done");
   });
 });

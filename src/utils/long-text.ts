@@ -1,4 +1,4 @@
-const BREAK_MARKUP_PATTERN = /\[([^\]]+)\]\(break:(\d+)\)/g;
+const BREAK_MARKUP_PATTERN = /\[([^\]]*)\]\(break:(\d+)\)/g;
 export const LONG_TEXT_PAUSE_MS = 150;
 export const LONG_TEXT_NEWLINE_PAUSE_MS = 225;
 export const LONG_TEXT_PARAGRAPH_PAUSE_MS = 325;
@@ -60,10 +60,8 @@ function appendSegmentChunks(
   paragraphPauseMs: number,
 ): void {
   let lastIndex = 0;
-  BREAK_MARKUP_PATTERN.lastIndex = 0;
 
   for (const match of text.matchAll(BREAK_MARKUP_PATTERN)) {
-    const label = match[1] ?? "";
     const pauseMs = Number(match[2] ?? 0);
     const index = match.index ?? 0;
 
@@ -76,26 +74,6 @@ function appendSegmentChunks(
         newlinePauseMs,
         paragraphPauseMs,
       );
-    }
-
-    if (label.trim()) {
-      const trimmedLabel = label.trim();
-      const previousChunk = chunks.at(-1);
-      if (previousChunk && previousChunk.text.length + trimmedLabel.length + 1 <= maxChunkLength) {
-        chunks[chunks.length - 1] = {
-          ...previousChunk,
-          text: `${previousChunk.text} ${trimmedLabel}`.trim(),
-        };
-      } else {
-        appendPlainTextChunks(
-          chunks,
-          trimmedLabel,
-          maxChunkLength,
-          sentencePauseMs,
-          newlinePauseMs,
-          paragraphPauseMs,
-        );
-      }
     }
 
     if (chunks.length > 0) {
