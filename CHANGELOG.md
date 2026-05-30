@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/Archetipo95/localvoice-studio/compare/v1.3.1...v1.4.0) (2026-05-30)
+
+### 🚀 Features
+
+* enhance versioning and changelog visibility in the app ([ec9b55f](https://github.com/Archetipo95/localvoice-studio/commit/ec9b55fc758d31e245efeedd79c7a14fd4652007))
+
 ## [1.3.1](https://github.com/Archetipo95/localvoice-studio/compare/v1.3.0...v1.3.1) (2026-05-29)
 
 ### 🩹 Bug Fixes
