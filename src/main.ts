@@ -11,9 +11,11 @@ function registerServiceWorker() {
   }
 
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/sw.js").catch((error) => {
-      console.error("Service worker registration failed:", error);
-    });
+    void navigator.serviceWorker
+      .register(`/sw.js?v=${encodeURIComponent(__BUILD_ID__)}`)
+      .catch((error) => {
+        console.error("Service worker registration failed:", error);
+      });
   });
 }
 

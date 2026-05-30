@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import AppTopHeader from "./components/AppTopHeader.vue";
 import { RouterView } from "vue-router";
+
+const appVersion = __APP_VERSION__;
 </script>
 
 <template>
@@ -17,6 +19,7 @@ import { RouterView } from "vue-router";
       <template #left>
         <div class="flex items-center gap-4 text-sm">
           <p class="text-muted">LocalVoice Studio</p>
+          <p class="text-muted">v{{ appVersion }}</p>
         </div>
       </template>
 
