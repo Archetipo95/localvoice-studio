@@ -1,3 +1,9 @@
+## [1.4.1](https://github.com/Archetipo95/localvoice-studio/compare/v1.4.0...v1.4.1) (2026-05-30)
+
+### 🩹 Bug Fixes
+
+* enhance token removal logic to conditionally replace with label ([71a478d](https://github.com/Archetipo95/localvoice-studio/commit/71a478d8030473629f7368c6a6e636caf85393d9))
+
 ## [1.4.0](https://github.com/Archetipo95/localvoice-studio/compare/v1.3.1...v1.4.0) (2026-05-30)
 
 ### 🚀 Features
