@@ -295,11 +295,19 @@ function removeToken() {
     return;
   }
 
+  const label = currentNode.attrs.label as string | undefined;
+
   editor
     .chain()
     .focus()
     .command(({ tr }) => {
-      tr.delete(tokenEditor.value!.pos, tokenEditor.value!.pos + currentNode.nodeSize);
+      const pos = tokenEditor.value!.pos;
+      const end = pos + currentNode.nodeSize;
+      if (label) {
+        tr.replaceWith(pos, end, editor.state.schema.text(label));
+      } else {
+        tr.delete(pos, end);
+      }
       return true;
     })
     .run();
