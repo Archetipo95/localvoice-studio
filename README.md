@@ -169,6 +169,8 @@ Releases are managed automatically from `main`.
 - The release flow updates [`CHANGELOG.md`](./CHANGELOG.md), bumps `package.json`/`package-lock.json`, creates a version tag, and publishes a GitHub Release.
 - Commit messages should follow the Conventional Commits format so release notes and version bumps stay accurate.
 - The public in-app changelog lives at `/changelog` and reads directly from [`CHANGELOG.md`](./CHANGELOG.md).
+- The changelog is embedded at build time, so the deployed build must be produced from the latest release commit to include the newest entry.
+- The app footer now shows the deployed app version to make production verification faster after each release.
 
 Release impact by commit type:
 

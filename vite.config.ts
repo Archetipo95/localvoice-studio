@@ -2,7 +2,14 @@ import { defineConfig } from "vite-plus";
 import vue from "@vitejs/plugin-vue";
 import ui from "@nuxt/ui/vite";
 
+const appVersion = process.env.npm_package_version ?? "0.0.0-dev";
+const buildId = process.env.GITHUB_SHA?.slice(0, 7) ?? `${appVersion}-local`;
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __BUILD_ID__: JSON.stringify(buildId),
+  },
   plugins: [vue(), ui()],
   fmt: {
     ignorePatterns: ["CHANGELOG.md"],
